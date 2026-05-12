@@ -1,0 +1,108 @@
+# ===========================================================================
+# Drone spec — Heavy multirotor (VTOL airframe), 10 kg class, weak yaw.
+#
+# This file is INPUT to your drone simulator. Your DroneSimulator reads it
+# at construction time and uses every field below to drive its physics.
+# DO NOT MODIFY this file — at evaluation time the organizers run your
+# simulator against the unmodified copy. If you want a simpler airframe to
+# develop against, use drones/quadcopter.yaml instead.
+#
+# Operating regime: HOVER / MULTIROTOR ONLY.
+# Although the airframe has wings (large fuselage + 1.7 m wingspan), the
+# challenge does NOT require modelling forward flight, hover↔cruise
+# transition, tilt servos, or wing lift. Treat this as a heavy quadrotor
+# whose four lift rotors point vertically at all times. The wings exist
+# only as visual mass + drag — they are why drag_linear[y] is high.
+#
+# Why this airframe is harder than the small quad:
+#   * Yaw authority is roughly 30x weaker (high Izz, small k_Q-to-k_T
+#     ratio). Reaching steady-state yaw rate takes ~2 s — you cannot
+#     use yaw to bail out of a late misalignment.
+#   * To land "wings perpendicular to boat heading" you have to commit
+#     to a yaw setpoint EARLY in the approach.
+#   * Inertias are asymmetric: pitch is sluggish (long fuselage), roll is
+#     much snappier than pitch.
+#
+# Coordinate convention: PyBullet ENU body frame.
+#   x = forward (along fuselage)   y = left (along wing)   z = up
+# ===========================================================================
+
+name: "Heavy multirotor (VTOL airframe) 10kg"
+type: "heavy_multirotor"
+description: |
+  10 kg class. 1.7 m wingspan, ~2 m fuselage, four vertically-mounted
+  lift rotors. Always operated in multirotor mode — no forward flight,
+  no transition. Limited yaw authority makes early heading planning
+  essential.
+
+# ----- Bulk physical properties --------------------------------------------
+mass: 10.0           # [kg]
+inertia:             # body-frame, diagonal (off-diagonal assumed 0)
+  Ixx: 2.54          # [kg*m^2] roll  (axis along fuselage)
+  Iyy: 3.47          # [kg*m^2] pitch (axis across wings)
+  Izz: 5.74          # [kg*m^2] yaw   (vertical axis — large because long fuselage AND wide wings)
+
+# ----- Geometry ------------------------------------------------------------
+# Collision box is the FUSELAGE only — the wings are visual silhouette and
+# do not collide. The drone is allowed to overhang the platform with its
+# wings and still land.
+geometry:
+  collision_box:
+    length: 0.50     # [m] fuselage along body x
+    width:  0.30     # [m] fuselage across body y
+    height: 0.10     # [m] fuselage height
+  collision_offset_z: -0.05   # [m] fuselage hangs below the wing/COM plane
+
+# ----- Motors --------------------------------------------------------------
+# Four lift rotors in an X-stretched configuration: two at the fuselage
+# nose/tail (long arm in x), two at the wing roots (shorter arm in y).
+# All thrust axes are body +z (vertical lift). Spins alternate so net
+# drag torque cancels at hover. The differential drag torque (yaw control)
+# is small relative to the body Izz — that's the source of "weak yaw".
+motors:
+  - id: 0   # nose-right wing root
+    position:    [ 1.00, -0.85, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: -1
+  - id: 1   # tail-right wing root
+    position:    [-1.00, -0.85, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: +1
+  - id: 2   # tail-left wing root
+    position:    [-1.00,  0.85, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: -1
+  - id: 3   # nose-left wing root
+    position:    [ 1.00,  0.85, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: +1
+
+# ----- Per-motor parameters (assumed identical across all 4 motors) --------
+motor:
+  omega_max: 350.0      # [rad/s] full-throttle steady-state rotor speed
+                        #         (~3340 RPM, typical for 18" lift prop)
+  time_constant: 0.12   # [s] slower spool than the quad — heavier rotor,
+                        #     bigger ESC current draw to change RPM
+  rotor_inertia: 8.0e-4 # [kg*m^2] used by tier-1 sims that model BLDC dynamics
+
+# ----- Propeller (assumed identical across all motors) ---------------------
+# k_T sized so that hover throttle ~ 70% (T_hover_per_motor = mg/4 = 24.5 N,
+# omega_hover = sqrt(24.5/k_T) ~ 247 rad/s = 70.5% of omega_max).
+# k_Q deliberately small relative to k_T to make yaw authority weak.
+propeller:
+  thrust_coefficient: 4.0e-4    # [N / (rad/s)^2]   T = k_T * omega^2
+  drag_coefficient:   1.0e-5    # [N*m / (rad/s)^2] Q = k_Q * omega^2
+  diameter: 0.46                # [m] 18" lift prop, informational + ground effect (tier 2)
+
+# ----- Battery (electrical model — tier 1) ---------------------------------
+battery:
+  capacity_Wh:        666.0  # 22 Ah @ 6S nominal (22.2 V)
+  voltage_nominal:    22.2   # 6S LiPo
+  internal_resistance: 0.04  # [ohm]
+
+# ----- Aerodynamics (tier 1, optional) -------------------------------------
+# Bigger drag than the quad — the wings give substantial lateral drag.
+# Realistic VTOL drag at 5 m/s is ~5-10 N along x or y.
+aero:
+  drag_linear:    [0.50, 1.20, 0.80]   # [N / (m/s)] — high y term: wing surface side-on
+  drag_quadratic: [0.0,  0.0,  0.0]    # [N / (m/s)^2]

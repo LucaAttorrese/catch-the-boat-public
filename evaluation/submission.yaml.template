@@ -1,0 +1,49 @@
+# ===========================================================================
+# Submission manifest — copy to `evaluation/submission_<your_team>.yaml`
+# and edit. The scorer reads it to know which Tier 1 features to test.
+#
+# CRITICAL HONESTY RULE
+# ---------------------
+# Set a tier_1 feature to `true` ONLY if your simulator actually
+# implements it. The corresponding test will be RUN automatically. If it
+# fails, you earn 0 for that feature AND get a "declared but not
+# detected" flag in the breakdown. Don't bluff — the tests are
+# physically motivated and hard to game.
+#
+# Tier 0 is NOT declared here — it's always tested. If any Tier 0 test
+# fails, your simulator score is 0 and Tier 1 is skipped.
+# ===========================================================================
+
+team:           "Your Team Name"
+
+# One of: quadcopter | vtol
+# This is the drone spec your AGENT runs against. The simulator MUST
+# work for both specs (Tier 0.4 verifies that), but you commit to one
+# for the agent challenge.
+chosen_drone:   "quadcopter"
+
+# Paths relative to the repo root.
+drone_sim_path: "agents/drone_sim_baseline.py"
+agent_path:     "agents/agent_baseline.py"
+
+# ----- Declared simulator features (Tier 1, 5 points each, max 30) ---------
+# Only declare what you actually implemented. Each `true` triggers an
+# automated test; failure = 0 points + dishonesty flag.
+simulator_features:
+  tier_1:
+    motor_lag:        false   # T1.A first-order RPM dynamics
+    battery_sag:      false   # T1.B max thrust drops under sustained load
+    aero_drag:        false   # T1.C body drag opposes motion
+    cross_coupling:   false   # T1.D Newton-Euler ω×(I·ω) term
+    substepping:      false   # T1.E internal sub-stepping for stiff dynamics
+    ground_effect:    false   # T1.F thrust amplification from ext_ground_z
+
+# ----- Notes for the human reviewer (Tier 2 rubric, max 5 pts) -------------
+# 1-2 paragraphs. The reviewer will use this together with your code to
+# score:
+#   T2.C code quality of the simulator (0/3/5)
+notes: |
+  Describe here:
+    * any aerodynamics / motor / battery models beyond Tier 1 baselines
+    * what the sim handles that the test suite does not check
+    * known limitations

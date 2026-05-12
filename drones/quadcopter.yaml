@@ -1,0 +1,98 @@
+# ===========================================================================
+# Drone spec — X-config quadrotor, 1.5 kg class.
+#
+# This file is INPUT to your drone simulator. Your DroneSimulator reads it
+# at construction time and uses every field below to drive its physics.
+# DO NOT MODIFY this file — at evaluation time the organizers run your
+# simulator against the unmodified copy. If you want to test a different
+# airframe, use drones/vtol.yaml instead.
+#
+# Coordinate convention: PyBullet ENU body frame.
+#   x = forward   y = left   z = up
+#   roll  = rotation around body x  (right wing down = +)
+#   pitch = rotation around body y  (nose up = +)
+#   yaw   = rotation around body z  (nose left = +)
+# ===========================================================================
+
+name: "X-Quadcopter 1.5kg"
+type: "quadrotor"
+description: |
+  Symmetric X-config quadrotor. Full yaw authority. The simpler of the two
+  drone specs — start here if you want to focus on perception/estimation.
+
+# ----- Bulk physical properties --------------------------------------------
+mass: 1.5            # [kg]
+inertia:             # body-frame, diagonal (off-diagonal assumed 0)
+  Ixx: 0.0213        # [kg*m^2] roll axis
+  Iyy: 0.0213        # [kg*m^2] pitch axis
+  Izz: 0.0400        # [kg*m^2] yaw axis
+
+# ----- Geometry ------------------------------------------------------------
+# The env wraps a rigid-body collision box around your simulator state for
+# contact detection with the boat. Edge lengths are FULL extents (not half).
+# Keep the collision box snug to the real airframe.
+geometry:
+  collision_box:
+    length: 0.40     # [m] body x
+    width:  0.40     # [m] body y
+    height: 0.10     # [m] body z
+  collision_offset_z: -0.02   # [m] collision box center vs. drone COM (negative = below COM)
+
+# ----- Motors --------------------------------------------------------------
+# Motor positions in body frame [m] and thrust axis (unit vector). For a
+# planar quad all four axes point straight up (+z body). For tilt-rotor /
+# VTOL configurations the axis can be anything.
+#
+# spin: +1 = CCW viewed from above the rotor (looking down +z).
+#       -1 = CW viewed from above.
+# An X-config quad alternates spins to cancel net drag torque at hover.
+motors:
+  - id: 0   # front-right
+    position:    [ 0.18, -0.18, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: -1
+  - id: 1   # back-right
+    position:    [-0.18, -0.18, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: +1
+  - id: 2   # back-left
+    position:    [-0.18,  0.18, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: -1
+  - id: 3   # front-left
+    position:    [ 0.18,  0.18, 0.0 ]
+    thrust_axis: [ 0.0,   0.0,  1.0 ]
+    spin: +1
+
+# ----- Per-motor parameters (assumed identical across the 4 motors) --------
+motor:
+  omega_max: 1100.0     # [rad/s] full-throttle steady-state rotor speed
+                        #         (~10500 RPM, typical for 5" racing quad)
+  time_constant: 0.05   # [s] first-order lag: omega_dot = (omega_cmd - omega) / tau
+                        #     This is your "tier 0" motor model. For a richer
+                        #     BLDC/electrical model, ignore this and use the
+                        #     battery + motor.rotor_inertia fields instead.
+  rotor_inertia: 6.0e-5 # [kg*m^2] used by tier-1 sims that integrate
+                        #          J*omega_dot = K_t*I - k_Q*omega^2
+
+# ----- Propeller (assumed identical across all motors) ---------------------
+propeller:
+  thrust_coefficient: 7.6e-6    # [N / (rad/s)^2]   T = k_T * omega^2
+  drag_coefficient:   1.2e-7    # [N*m / (rad/s)^2] Q = k_Q * omega^2
+  diameter: 0.127               # [m] 5" prop, informational + ground effect (tier 2)
+
+# ----- Battery (electrical model — tier 1) ---------------------------------
+# The env tracks an opaque charge in [0, 1] separately (boat_landing/battery.py).
+# This section lets your simulator model voltage sag under load if you choose
+# to go beyond tier 0.
+battery:
+  capacity_Wh:        74.0   # 5000 mAh @ 14.8 V
+  voltage_nominal:    14.8   # 4S LiPo
+  internal_resistance: 0.05  # [ohm]
+
+# ----- Aerodynamics (tier 1, optional) -------------------------------------
+# Linear + quadratic drag per body axis. Set everything to 0.0 for a
+# vacuum drone (tier 0). Realistic quad drag at 5 m/s is ~1-2 N.
+aero:
+  drag_linear:    [0.10, 0.10, 0.20]   # [N / (m/s)]
+  drag_quadratic: [0.0,  0.0,  0.0]    # [N / (m/s)^2]

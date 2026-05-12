@@ -1,0 +1,65 @@
+# Recovery scenario — tests marker re-acquisition after a scripted blackout.
+#
+# A linear-cruise boat at moderate speed (between EASY and MEDIUM) with no
+# stochastic camera degradation, EXCEPT for a 3-second deterministic
+# occlusion window that hits during the approach phase. The agent must:
+#   1. Not drift more than `recovery_check.drift_tolerance_m` during the
+#      blackout (typically 2.0 m horizontally).
+#   2. Re-acquire the marker — i.e. produce an estimate within
+#      `recovery_check.reacquire_tolerance_m` of the true boat position —
+#      within `recovery_check.reacquire_window_s` after the blackout ends.
+#
+# Both criteria must pass to claim the HW-readiness recovery bonus (+5).
+# See evaluation/scorer.py and docs/SCORING.md.
+scenario_id: "recovery"
+duration_max: 45.0
+battery_initial: 1.0
+battery_drain_rate: 0.008
+battery_drain_aggressive: 0.018
+
+drone_start:
+  position: [8.0, 0.0, 7.0]
+  attitude: [0.0, 0.0, 0.0]
+
+boat:
+  trajectory_type: "linear"
+  start_position: [0.0, 0.0, 0.15]
+  speed: 1.2
+  heading_initial: 0.0
+  oscillation:
+    roll_amplitude: 0.05
+    pitch_amplitude: 0.03
+    frequency: 0.3
+
+wind:
+  enabled: true
+  mean_force: [0.2, 0.0, 0.0]
+  gust_amplitude: 0.15
+  gust_frequency: 0.2
+
+camera:
+  noise_level: 0.02
+  motion_blur_kernel: 0
+  fog_density: 0.0
+  fps: 0
+  # Deterministic blackout: camera returns the "occluded" frame for every
+  # render whose simulation time t satisfies t_start <= t < t_end. The
+  # scenario's stochastic occlusion fields stay zero so the only blackout
+  # is the scripted one.
+  occlusion_window: [8.0, 11.0]
+  occlusion_probability: 0.0
+
+landing:
+  yaw_alignment_tol_deg: 25.0
+
+# Bonus check configuration, consumed by evaluate.py. The drone must
+# stay close to its position at blackout start, and the agent's
+# `get_last_estimate()` must return to a high-fidelity estimate within
+# `reacquire_window_s` after the blackout ends.
+recovery_check:
+  enabled: true
+  drift_tolerance_m: 2.0
+  reacquire_tolerance_m: 0.30
+  reacquire_window_s: 1.0
+
+seed: 42

@@ -1,0 +1,57 @@
+# Catch the Boat — BASE evaluation container.
+#
+# This is the PARTICIPANT-FACING image. It contains every dependency
+# needed to run agents and the baseline simulator, but NOT the
+# organizer reference simulator (the high-fidelity binary that the
+# agent is scored against at evaluation time). To test against the
+# reference sim, participants pull the official `challenge-eval:full`
+# image published by the organizers — see release/Dockerfile.eval-full.
+#
+# Build:
+#   docker build -f docker/Dockerfile.eval -t challenge-eval:base .
+#
+# Run a single scenario (mounts the repo at /workspace):
+#   docker run --rm --cpus=6 --memory=8g \
+#       -v "$(pwd)":/workspace -w /workspace challenge-eval:base \
+#       python evaluation/evaluate.py --scenario easy --headless --seed 42
+#
+# See docs/DOCKER.md for the full workflow.
+
+FROM python:3.10-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# OS deps:
+#   - libgl1, libglib2.0-0: OpenCV runtime
+#   - libgomp1: numpy/scipy threading runtime
+#   - libsm6, libxext6, libxrender1: pygame/OpenCV display libs
+#   - build-essential: only needed by participants who add native ext deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+        libgomp1 \
+        libsm6 \
+        libxext6 \
+        libxrender1 \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Install the challenge dependencies first so this layer caches across
+# rebuilds even when participant code changes.
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
+
+# Force headless behaviour. Participants who try to open a display from
+# inside the container get a clean error instead of a silent hang.
+ENV SDL_VIDEODRIVER=dummy \
+    MPLBACKEND=Agg \
+    PYBULLET_EGL=1
+
+# Default to bash so `docker run ... challenge-eval` drops into a shell;
+# pass a command explicitly to run something concrete.
+CMD ["bash"]

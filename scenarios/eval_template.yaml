@@ -1,0 +1,57 @@
+# Template for an evaluation scenario.
+#
+# The real evaluation scenarios are kept private by the organizers and will be
+# released after the event ends. They use this same schema. Use this template
+# to create your own training scenarios while preparing for the hackathon.
+#
+# All fields below are required (with the exception of optional sub-fields
+# where indicated). Anything missing falls back to a documented default in
+# `boat_landing/env.py`.
+
+scenario_id: "eval_template"
+duration_max: 60.0          # max episode wall time (seconds)
+battery_initial: 1.0        # 1.0 == fully charged
+battery_drain_rate: 0.010   # base drain per second of flight
+battery_drain_aggressive: 0.025  # extra drain proportional to angular velocity
+
+drone_start:
+  position: [10.0, 10.0, 8.0]
+  attitude: [0.0, 0.0, 0.0]   # roll, pitch, yaw (rad)
+
+boat:
+  # One of: static | linear | curve | random_walk
+  trajectory_type: "linear"
+  start_position: [0.0, 0.0, 0.15]
+  speed: 1.5                 # m/s along heading direction
+  heading_initial: 0.5       # rad (0 = +x)
+  # Optional, only used by 'curve'
+  curve_radius: 20.0
+  curve_direction: 1         # +1 ccw, -1 cw
+  oscillation:
+    roll_amplitude: 0.05     # rad
+    pitch_amplitude: 0.03    # rad
+    frequency: 0.4           # Hz
+
+wind:
+  enabled: true
+  mean_force: [0.3, 0.0, 0.0]  # N applied to drone body
+  gust_amplitude: 0.2
+  gust_frequency: 0.1          # Hz
+
+camera:
+  noise_level: 0.02            # additive Gaussian sigma in [0,1]
+  motion_blur_kernel: 0        # 0 = off; odd integer >= 3 = horizontal box blur of N px
+  fog_density: 0.0             # extinction coefficient (1/m); Beer-Lambert blend
+                               # toward atmospheric gray. Typical range [0, 0.5].
+  fps: 0                       # target sensor framerate; 0 = render every env step
+                               # (50 Hz). e.g. 10 = stale frame for ~4 of 5 env steps.
+  occlusion_probability: 0.0   # per-second probability of an occlusion event
+  occlusion_duration: 1.0      # seconds
+
+landing:
+  # Wing-perpendicular condition. The drone's body-x (fuselage) must be aligned
+  # with the boat's heading axis (modulo pi) within this tolerance for a
+  # platform contact to count as LANDED. Otherwise the contact = CRASHED.
+  yaw_alignment_tol_deg: 25.0
+
+seed: 1234

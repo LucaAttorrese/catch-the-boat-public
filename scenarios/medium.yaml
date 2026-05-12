@@ -1,0 +1,31 @@
+scenario_id: "medium"
+duration_max: 60.0
+battery_initial: 1.0
+battery_drain_rate: 0.008
+battery_drain_aggressive: 0.02
+drone_start:
+  position: [10.0, 10.0, 8.0]
+  attitude: [0.0, 0.0, 0.0]
+boat:
+  trajectory_type: "linear"
+  start_position: [0.0, 0.0, 0.15]
+  speed: 1.5
+  heading_initial: 0.5
+  oscillation:
+    roll_amplitude: 0.05
+    pitch_amplitude: 0.03
+    frequency: 0.4
+wind:
+  enabled: true
+  mean_force: [0.3, 0.0, 0.0]
+  gust_amplitude: 0.2
+  gust_frequency: 0.1
+camera:
+  noise_level: 0.02
+  motion_blur_kernel: 0
+  fog_density: 0.05           # light marine haze
+  fps: 20                     # 20 Hz: agent sees a fresh frame every ~2.5 env steps
+  occlusion_probability: 0.0
+landing:
+  yaw_alignment_tol_deg: 20.0
+seed: 42

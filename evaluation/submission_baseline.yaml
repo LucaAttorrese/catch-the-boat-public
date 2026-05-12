@@ -1,0 +1,31 @@
+# Submission manifest for the baseline drone simulator + baseline agent.
+#
+# The baseline sim implements (from agents/drone_sim_baseline.py):
+#   * First-order motor RPM lag             → declares motor_lag = true
+#   * Newton-Euler with ω×(I·ω) coupling    → declares cross_coupling = true
+#   * Internal sub-stepping (5 ms cap)      → declares substepping = true
+#
+# It does NOT implement battery sag, aero drag, or ground effect. Those
+# features are intentionally left for participants to add as fidelity
+# bonuses.
+
+team:           "Baseline (organizers)"
+chosen_drone:   "quadcopter"
+drone_sim_path: "agents/drone_sim_baseline.py"
+agent_path:     "agents/agent_baseline.py"
+
+simulator_features:
+  tier_1:
+    motor_lag:        true
+    battery_sag:      false
+    aero_drag:        false
+    cross_coupling:   true
+    substepping:      true
+    ground_effect:    false
+
+notes: |
+  Reference Tier-0 simulator. Static thrust + first-order motor model +
+  rigid-body Newton-Euler with cross-axis coupling, plus light internal
+  sub-stepping (required by T0.5 gate and gives T1.E for free).
+  No aerodynamics, no battery sag, no ground effect.
+  Expected score: 15 / 30.

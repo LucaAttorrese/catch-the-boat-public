@@ -1,0 +1,31 @@
+scenario_id: "easy"
+duration_max: 60.0
+battery_initial: 1.0
+battery_drain_rate: 0.005
+battery_drain_aggressive: 0.012
+drone_start:
+  position: [4.0, 0.0, 6.0]
+  attitude: [0.0, 0.0, 0.0]
+boat:
+  trajectory_type: "static"
+  start_position: [0.0, 0.0, 0.15]
+  speed: 0.0
+  heading_initial: 0.0
+  oscillation:
+    roll_amplitude: 0.0
+    pitch_amplitude: 0.0
+    frequency: 0.0
+wind:
+  enabled: false
+  mean_force: [0.0, 0.0, 0.0]
+  gust_amplitude: 0.0
+  gust_frequency: 0.0
+camera:
+  noise_level: 0.0
+  motion_blur_kernel: 0       # 0 = off, odd >= 3 = horizontal box blur of N px
+  fog_density: 0.0            # 1/m, Beer-Lambert: t = exp(-density * altitude)
+  fps: 0                      # 0 = render every env step (50 Hz)
+  occlusion_probability: 0.0
+landing:
+  yaw_alignment_tol_deg: 30.0   # max yaw misalignment between drone fuselage and boat length
+seed: 42

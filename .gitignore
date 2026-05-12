@@ -1,0 +1,69 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs & artifacts
+*.log
+logs/
+runs/
+results/
+*.mp4
+*.gif
+
+# Generated assets (regenerable via scripts/generate_aruco.py)
+boat_landing/assets/aruco/*.png
+
+# Local configs
+.local/
+*.local.yaml
+
+# Private evaluation scenarios — organizer-only, must NEVER ship to
+# participants. The directory itself is kept (.gitkeep) so the tree
+# structure is visible, but content (.yaml) is ignored. README.md is
+# tracked explicitly so the next organizer knows the rules.
+scenarios/private/*.yaml
+!scenarios/private/.gitkeep
+!scenarios/private/README.md
+
+# Compiled reference simulator artefacts — never ship the .pyx/.c
+# intermediate files, only the final .so/.pyd in the participant wheel.
+boat_landing/reference_sim/_core.c
+boat_landing/reference_sim/build/
+
+# Claude Code local settings — personal/per-machine, never share.
+.claude/
+
+# Scratch build/eval output directory used during dev.
+build/
+
