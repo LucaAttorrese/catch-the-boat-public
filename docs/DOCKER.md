@@ -13,7 +13,7 @@ against the exact same target.
 | Image | Source | Contains | Used for |
 | --- | --- | --- | --- |
 | `challenge-eval:base` | `docker/Dockerfile.eval` (this repo) | Python 3.10, all `requirements.txt`, baseline drone sim | Local dev. Build it yourself with the command below. |
-| `<registry>/catch-the-boat:vN` (a.k.a. `:full`) | Published by organizers | All of `:base`, plus the compiled **reference simulator** binary | Final evaluation. Pull this when you want to test your agent against the exact physics it will face in scoring. |
+| `ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon` | Published by organizers | All of `:base`, plus the compiled **reference simulator** binary | Final evaluation. The image is **private until the event opens**; organizers will announce on-site how to authenticate (a short-lived deploy token). Until then, dev against `:base` + the public baseline simulator — your agent code does not need the reference image to be written or unit-tested. |
 
 The reference simulator is a compiled Cython binary; the source is not
 included in `:full`. For the qualitative description of what the
@@ -24,22 +24,24 @@ reference models, see `boat_landing/reference_sim/physics_notes.md`.
 ## TL;DR
 
 ```bash
-# build the base image once
+# build the base image (your dev environment)
 docker build -f docker/Dockerfile.eval -t challenge-eval:base .
 
-# (when the organizers publish it) pull the full image with reference sim
-docker pull ghcr.io/<organizer>/catch-the-boat:v1
-docker tag  ghcr.io/<organizer>/catch-the-boat:v1 challenge-eval:full
-
-# run anything inside the eval container, with the eval resource limits
+# run scenarios with the baseline drone simulator inside the container
 ./docker/run-local.sh python evaluation/evaluate.py --scenario hard --headless --seed 42
 
-# to evaluate against the reference simulator, point CHALLENGE_IMAGE at :full
-CHALLENGE_IMAGE=challenge-eval:full ./docker/run-local.sh \
-    python evaluation/evaluate.py --use-reference-sim --scenario hard --headless
-
-# calibrate your machine against the organizer reference
+# calibrate your machine against the organizer reference timing
 ./docker/run-local.sh python docker/benchmark.py
+
+# --- at the event ---
+# Organizers will announce the auth flow (a short-lived deploy token).
+# Then pull the full image with the reference simulator baked in:
+#   docker login ghcr.io -u <provided-user> -p <provided-token>
+#   docker pull ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon
+#   docker tag  ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon challenge-eval:full
+# After that, evaluate against the reference simulator with:
+#   CHALLENGE_IMAGE=challenge-eval:full ./docker/run-local.sh \
+#       python evaluation/evaluate.py --use-reference-sim --scenario hard --headless
 ```
 
 Windows users: replace `./docker/run-local.sh` with `.\docker\run-local.ps1`.
