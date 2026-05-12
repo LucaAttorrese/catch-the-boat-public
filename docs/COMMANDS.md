@@ -234,12 +234,12 @@ python scripts/run_baseline.py --scenario hard
 ## 3. Valutazione
 
 Ci sono **due scorer indipendenti**, uno per ogni metà del punteggio
-totale:
+totale (la rubrica HW track è giudicata a mano dagli organizzatori):
 
 | CLI | Scopo | Punteggio |
 | --- | --- | --- |
-| `evaluation/evaluate.py`    | Esegue l'agente su uno scenario e calcola il punteggio di **landing** | 0–130 |
-| `evaluation/sim_scorer.py`  | Esegue la suite di validazione sul tuo **simulatore** | 0–40 |
+| `evaluation/evaluate.py`    | Esegue l'agente su uno scenario e calcola il punteggio di **landing** + i bonus HW-readiness (FC-compat, latenza, recovery) | 0–145 |
+| `evaluation/sim_scorer.py`  | Esegue la suite di validazione (Tier-0 gate + Tier-1 features) sul tuo **simulatore** | 0–30 |
 
 ### 3.1 Score dell'agente (`evaluate.py`)
 
