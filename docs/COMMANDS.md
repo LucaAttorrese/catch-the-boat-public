@@ -5,25 +5,144 @@ debuggare e valutare l'agente. I percorsi sono relativi alla cartella
 `catch-the-boat/`.
 
 > **Nota.** Tutti i comandi presuppongono che l'environment Python sia
-> attivo (venv su Linux/macOS, venv o conda su Windows) e che si usi
-> Python 3.10.
+> attivo e che si usi Python 3.10. La forma di "attivare l'environment"
+> dipende dall'OS e dal path di install scelto:
 >
-> **Su Windows il path raccomandato è Miniconda** — vedi
-> [§1.3](#13-installazione-windows--miniconda-raccomandato).
-> PyBullet non ha wheel pre-compilati su PyPI per Windows e tenta di
-> compilarsi da sorgente, fallendo se manca MSVC.
+> - **Linux** (venv): `source .venv/bin/activate`
+> - **macOS Intel** (venv): `source .venv/bin/activate`
+> - **macOS Apple Silicon** (Miniforge, raccomandato): `conda activate catch-the-boat`
+> - **Windows** (Miniconda, raccomandato): `conda activate catch-the-boat`
+>
+> **Path con wheel pre-compilati di PyBullet** (no compilatore necessario):
+> Linux pip wheels; macOS Intel pip wheels; macOS ARM **solo via conda-forge**;
+> Windows **solo via conda-forge**. Vedi le sezioni 1.1–1.3 per i dettagli OS-by-OS.
 
 ---
 
 ## 1. Setup iniziale
 
-### 1.1 Installazione (Linux / macOS)
+### 1.1 Installazione (Linux)
+
+Path standard: venv + pip. PyBullet ha wheel pre-compilati su Linux x86_64
+e funziona out of the box.
+
+**Step 1. Assicurati di avere Python 3.10.** Su Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y python3.10 python3.10-venv python3.10-dev \
+                    build-essential libgl1 libglib2.0-0 \
+                    libsm6 libxext6 libxrender1 libgomp1
+```
+
+Su Fedora / RHEL:
+
+```bash
+sudo dnf install -y python3.10 python3.10-devel gcc \
+                    mesa-libGL glib2 libSM libXext libXrender libgomp
+```
+
+Su Arch:
+
+```bash
+sudo pacman -S python python-pip mesa libsm libxext libxrender
+# Arch ships Python 3.12+; se serve 3.10 esatto, usa pyenv o conda.
+```
+
+**Step 2. Crea venv + installa requirements:**
 
 ```bash
 python3.10 -m venv .venv
 source .venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
 ```
+
+**Step 3. Verifica:**
+
+```bash
+python scripts/test_setup.py
+```
+
+**Gotcha Linux:**
+
+- **`ImportError: libGL.so.1: cannot open shared object file`** quando
+  OpenCV importa: ti manca `libgl1`. Installalo come da Step 1.
+- **Pygame finestra nera o "Couldn't connect to display"** sotto
+  Wayland. Workaround più rapido: `export SDL_VIDEODRIVER=x11` prima
+  di lanciare `--visualize`. Permanente: aggiungilo a `.bashrc`/`.zshrc`.
+- **Headless server (no display)**: usa `--headless`. Tutti gli
+  scorer girano bene senza DISPLAY. `--visualize` richiede X11 o Wayland.
+- **WSL2 senza WSLg**: `--visualize` non funziona, `--headless` sì.
+  Per la GUI installa WSLg (default su Win11) o usa un X server (VcXsrv).
+
+### 1.1b Installazione (macOS)
+
+Funziona sia su Intel che Apple Silicon, ma il path consigliato cambia
+in base all'architettura. Su **Apple Silicon (M1/M2/M3/M4)** PyBullet
+da PyPI non ha wheel ARM64 e tenta di compilarsi: il path conda è
+**raccomandato**.
+
+**Step 1. Installa Python + tooling.**
+
+Path A — **Homebrew (Intel o ARM)**:
+
+```bash
+brew install python@3.10 cmake pkg-config
+```
+
+Path B — **Miniforge (ARM, raccomandato per Apple Silicon)**:
+
+```bash
+brew install miniforge
+conda init zsh   # o bash, in base alla tua shell
+# chiudi e riapri il terminale
+```
+
+**Step 2. Crea l'environment.**
+
+Con Homebrew (Intel):
+
+```bash
+python3.10 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -r requirements.txt
+```
+
+Con Miniforge (Apple Silicon, raccomandato):
+
+```bash
+conda create -n catch-the-boat python=3.10 -y
+conda activate catch-the-boat
+conda install -c conda-forge pybullet -y
+pip install -r requirements.txt
+```
+
+**Step 3. Verifica:**
+
+```bash
+python scripts/test_setup.py
+```
+
+**Gotcha macOS:**
+
+- **`pip install pybullet` blocca per minuti su Apple Silicon** poi
+  fallisce: stai compilando da source senza CMake/clang configurati
+  bene. Passa al path Miniforge (`conda install -c conda-forge pybullet`).
+- **`ImportError: cannot find OpenGL framework`** lanciando lo
+  visualizer: aggiungi le permissions Screen Recording al tuo
+  terminale in Privacy & Security → Screen Recording.
+- **OpenCV ArUco mancante** (`AttributeError: module 'cv2' has no
+  attribute 'aruco'`): hai installato `opencv-python`, ti serve
+  `opencv-contrib-python`. Disinstalla quello sbagliato e reinstalla
+  il giusto dal `requirements.txt`.
+- **Multiple Python installations** che si scontrano (system Python +
+  Homebrew + conda). Verifica con `which python` che punti dove credi.
+- **Display ritardato su scenari `--gui`**: PyBullet's hardware
+  renderer su macOS è meno performante che su Linux/Windows. Per
+  scenari lunghi usa `--headless` (3-5× più lento del `--gui` ma
+  riproducibile).
 
 ### 1.2 Installazione (Windows — MSVC Build Tools)
 
@@ -153,7 +272,15 @@ python scripts/run_baseline.py --scenario easy --visualize --gui
 > Se vedi più di un `(...)` davanti al prompt, hai env sovrapposti
 > (vedi [§1.5](#15-gotcha-windows)).
 
-**Su Linux/macOS:**
+**Su macOS Apple Silicon (Miniforge):**
+
+```bash
+conda activate catch-the-boat
+cd /path/to/catch-the-boat
+python scripts/run_baseline.py --scenario easy --visualize --gui
+```
+
+**Su Linux / macOS Intel (venv):**
 
 ```bash
 source .venv/bin/activate
