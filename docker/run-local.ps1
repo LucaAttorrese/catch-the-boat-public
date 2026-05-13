@@ -18,6 +18,10 @@ $Memory = if ($env:CHALLENGE_MEMORY) { $env:CHALLENGE_MEMORY } else { "8g" }
 # image with the reference simulator baked in, override:
 #   $env:CHALLENGE_IMAGE = "challenge-eval:full"
 #   .\docker\run-local.ps1 ...
+# Or pull and re-tag the published image (auth + public access flow
+# will be announced by organizers at event start):
+#   docker pull ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon
+#   docker tag  ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon challenge-eval:full
 
 # Build if the image isn't already there.
 docker image inspect $Image 2>$null | Out-Null

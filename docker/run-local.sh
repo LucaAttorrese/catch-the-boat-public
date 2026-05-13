@@ -20,9 +20,10 @@ MEMORY="${CHALLENGE_MEMORY:-8g}"
 # docker/Dockerfile.eval). To run against the organizer-published
 # image with the reference simulator baked in, override:
 #   CHALLENGE_IMAGE=challenge-eval:full ./docker/run-local.sh ...
-# Or pull and re-tag the published image:
-#   docker pull ghcr.io/<organizer>/catch-the-boat:v1
-#   docker tag  ghcr.io/<organizer>/catch-the-boat:v1 challenge-eval:full
+# Or pull and re-tag the published image (auth + public access flow
+# will be announced by organizers at event start):
+#   docker pull ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon
+#   docker tag  ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon challenge-eval:full
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "Image '$IMAGE' not found locally. Building from docker/Dockerfile.eval ..." >&2

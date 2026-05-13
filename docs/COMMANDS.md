@@ -467,7 +467,7 @@ metriche per ogni test.
 
 Vedi [`SIM_SCORING.md`](SIM_SCORING.md) per la rubrica completa.
 
-#### Score del baseline (atteso: 10/30)
+#### Score del baseline (atteso: 15/30)
 
 ```bash
 python evaluation/sim_scorer.py \

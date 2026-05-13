@@ -149,10 +149,18 @@ def _detect_agent_mode(agent) -> str:
 
     `act_setpoint` wins if present, even if `act` is also defined — this
     way an agent that exposes both is unambiguously scored as FC-compatible.
+    Raises AttributeError if neither is exposed (so the participant gets
+    a clear failure at startup rather than a confused traceback mid-episode).
     """
     if hasattr(agent, "act_setpoint") and callable(agent.act_setpoint):
         return "setpoint"
-    return "motor"
+    if hasattr(agent, "act") and callable(agent.act):
+        return "motor"
+    raise AttributeError(
+        f"Agent {type(agent).__name__} exposes neither `act(obs)` nor "
+        f"`act_setpoint(obs)`. Implement at least one — see "
+        f"agents/agent_template.py."
+    )
 
 
 def _record_recovery(

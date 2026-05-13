@@ -2,17 +2,23 @@
 
 This document explains how the **drone simulator** is scored, separately
 from your agent. The agent is judged on landing performance (see
-[`SCORING.md`](SCORING.md), 0–130 points). The simulator is judged on
-**physical fidelity** — how seriously you modelled the airframe — and is
-worth up to **40 points** on top of your agent score.
+[`SCORING.md`](SCORING.md), 0–130 points + 0–15 HW-readiness bonuses).
+The simulator is judged on **physical fidelity** — how seriously you
+modelled the airframe — and is worth up to **30 points** on top of
+your agent score. The optional hardware track (rubric, see
+[`CHALLENGE.md`](CHALLENGE.md)) adds another 30.
 
 ```
-total_score = agent_landing_score (0..130)  +  simulator_score (0..40)
+total_score = agent_landing_score (0..130)
+            + agent_hw_readiness  (0..15)
+            + simulator_score     (0..30)
+            + hardware_track      (0..30)        # optional, rubric
 ```
 
-The two are independent: a perfect agent on a sloppy simulator scores
-high but not maximum; a great simulator with a weak agent earns the
-simulator points regardless.
+The agent and simulator tracks are **independent**: a sloppy participant
+sim does NOT make agent landing easier, because the agent is always run
+against the organizer-owned reference simulator (see
+[Reference simulator](#reference-simulator-organizer-owned)).
 
 ---
 

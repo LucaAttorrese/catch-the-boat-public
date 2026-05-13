@@ -298,7 +298,7 @@ tracks instead.
 
 Full rubric and per-feature pass criteria in
 [`docs/SIM_SCORING.md`](docs/SIM_SCORING.md). The reference baseline
-sim scores 10/30.
+sim scores 15/30 (motor_lag + cross_coupling + substepping).
 
 ---
 
@@ -389,11 +389,14 @@ fits your team's strengths. Both use the same `agent.py` code; only
 the simulator and spec change.
 
 **Q. Do I have to write a `drone_sim.py`?**
-Yes. There's no "default sim" at evaluation time — the scorer needs
-your sim to run the validation suite for the simulator-quality
-score. You can fork `agents/drone_sim_baseline.py` and submit
-unchanged for 10/30 — that's the floor. Adding even one Tier 1
-feature beats it.
+Yes — but only for the sim-track score. The agent itself is run
+against the organizer **reference simulator** (a compiled binary in
+the `:full` Docker image), not against your sim. Your sim is judged
+independently by the sim-track validation suite. You can fork
+`agents/drone_sim_baseline.py` and submit it unchanged — but the
+AST similarity check caps verbatim resubmissions at 0; **rename
+the file and modify at least one feature** to score the baseline's
+15/30 floor.
 
 **Q. Can I yaw the drone if I just want to point the camera?**
 Yes. Yaw is also useful for keeping the marker in the center of frame
