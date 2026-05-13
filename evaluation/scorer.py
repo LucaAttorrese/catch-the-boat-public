@@ -101,7 +101,15 @@ def compute_score(
         breakdown["components"] = {"crash_penalty": CRASH_PENALTY}
         return CRASH_PENALTY, breakdown
 
-    if outcome in ("TIMEOUT", "OUT_OF_BATTERY", "ABORTED"):
+    # Soft-fail outcomes: agent didn't crash the drone, just didn't land.
+    # Includes WALL_TIMEOUT (wall-clock cap hit by a slow agent), ERROR
+    # (agent raised an unhandled exception), and OUT_OF_MEMORY (the OS
+    # killed the process). All three score 0, never -20: they're agent
+    # bugs / inefficiencies, not aggressive crashes.
+    if outcome in (
+        "TIMEOUT", "OUT_OF_BATTERY", "ABORTED",
+        "WALL_TIMEOUT", "ERROR", "OUT_OF_MEMORY",
+    ):
         return 0.0, breakdown
 
     if outcome != "LANDED":

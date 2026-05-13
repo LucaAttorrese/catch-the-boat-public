@@ -233,13 +233,23 @@ def run_episode(
     agent,
     seed: Optional[int] = None,
     progress: bool = True,
+    wall_cap_s: Optional[float] = None,
 ) -> dict:
+    """Run one episode and return a scored result.
+
+    `wall_cap_s`: if set, abort the episode with outcome `WALL_TIMEOUT`
+    when this many wall-clock seconds have elapsed since reset. Used to
+    protect the eval pipeline from agents whose `act()` takes too long
+    (or runs forever). Recommended: 10 * scenario.duration_max.
+    """
     obs, info = env.reset(seed=seed)
     estimation_log = []
     last_obs_battery = obs["battery"]
     last_info = info
     step_idx = 0
     next_progress_t = 1.0  # next sim-time at which to print a progress line
+    wall_start = time.perf_counter()
+    wall_timed_out = False
 
     mode = _detect_agent_mode(agent)
     attitude_ctrl: Optional[DefaultAttitudeController] = None
@@ -276,6 +286,17 @@ def run_episode(
     }
 
     while True:
+        # Wall-clock cap: protect the eval from runaway / infinite-loop
+        # agents. Treated as a soft TIMEOUT (score 0, not -20), since the
+        # drone hasn't actually crashed.
+        if wall_cap_s is not None and (time.perf_counter() - wall_start) > wall_cap_s:
+            wall_timed_out = True
+            print(
+                f"  wall-clock cap of {wall_cap_s:.1f}s exceeded; aborting episode.",
+                file=sys.stderr,
+            )
+            break
+
         # Latency-profiled region: ONLY the agent call.
         t0 = time.perf_counter()
         if mode == "setpoint":
@@ -339,7 +360,7 @@ def run_episode(
         if terminated or truncated:
             break
 
-    outcome = last_info.get("outcome") or "TIMEOUT"
+    outcome = "WALL_TIMEOUT" if wall_timed_out else (last_info.get("outcome") or "TIMEOUT")
     final_drone_pos = env._traj[-1]["drone_pos"] if env._traj else np.zeros(3)
     final_boat_pos = env._traj[-1]["boat_pos"] if env._traj else np.zeros(3)
     landing_position_error = float(
@@ -426,6 +447,75 @@ def run_episode(
     return result
 
 
+def _error_result(env: BoatLandingEnv, outcome: str, exc: BaseException) -> dict:
+    """Build a scoring result for a run that failed before LANDING.
+
+    Used by `run_episode_safe` when the agent or env raised an
+    exception. Score is forced to 0 via the scorer's soft-fail branch,
+    so participants who crash mid-episode get the same treatment as
+    a TIMEOUT (not the -20 of a CRASHED drone).
+
+    The traceback is NOT included — only `type(exc).__name__` and the
+    short message — to avoid leaking team file paths or sensitive
+    internals into the public scoreboard.
+    """
+    duration_max = float(env.scenario.get("duration_max", 60.0))
+    score, breakdown = compute_score(
+        outcome=outcome,
+        landing_position_error=None,
+        time_to_land=float(env.t),
+        duration_max=duration_max,
+        battery_remaining=0.0,
+        max_descent_velocity=0.0,
+        estimation_rmse=None,
+        hw_readiness=None,
+    )
+    return {
+        "score": score,
+        "outcome": outcome,
+        "scenario_id": env.scenario.get("scenario_id", "unknown"),
+        "time_to_terminate_s": float(env.t),
+        "battery_remaining": None,
+        "landing_position_error_m": None,
+        "max_descent_velocity_mps": None,
+        "estimation_rmse_m": None,
+        "agent_mode": None,
+        "latency_p95_ms": None,
+        "latency_mean_ms": None,
+        "error_type": type(exc).__name__,
+        "error_message": str(exc)[:240],
+        "breakdown": breakdown,
+    }
+
+
+def run_episode_safe(
+    env: BoatLandingEnv,
+    agent,
+    seed: Optional[int] = None,
+    progress: bool = True,
+    wall_cap_s: Optional[float] = None,
+) -> dict:
+    """Exception-safe wrapper around `run_episode`.
+
+    Catches:
+        - MemoryError                  → outcome = OUT_OF_MEMORY
+        - any other Exception          → outcome = ERROR
+        - KeyboardInterrupt            → re-raised (organiser ctrl-c respected)
+
+    The result is always a valid JSON-serialisable dict, so batch eval
+    pipelines never die mid-run. The traceback is dropped on purpose —
+    only the exception type + message are recorded.
+    """
+    try:
+        return run_episode(env, agent, seed=seed, progress=progress, wall_cap_s=wall_cap_s)
+    except KeyboardInterrupt:
+        raise
+    except MemoryError as exc:
+        return _error_result(env, "OUT_OF_MEMORY", exc)
+    except Exception as exc:  # noqa: BLE001 — intentional broad catch
+        return _error_result(env, "ERROR", exc)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -481,6 +571,14 @@ def main() -> int:
         help="Optional path to write the result JSON (in addition to stdout).",
     )
     parser.add_argument(
+        "--wall-cap-multiplier",
+        type=float,
+        default=10.0,
+        help="Wall-clock cap = multiplier * scenario.duration_max. If the "
+        "episode runs longer than this in wall time, abort with outcome "
+        "WALL_TIMEOUT (score 0). Default 10x. Set 0 to disable.",
+    )
+    parser.add_argument(
         "--save-traj",
         type=str,
         default=None,
@@ -505,8 +603,17 @@ def main() -> int:
         )
     use_gui = args.gui and not args.headless
     env = BoatLandingEnv(str(scenario_path), drone_sim=drone_sim, gui=use_gui)
+    # Translate the user's wall-cap multiplier into seconds. 0 disables.
+    wall_cap_s: Optional[float] = None
+    if args.wall_cap_multiplier and args.wall_cap_multiplier > 0:
+        wall_cap_s = float(args.wall_cap_multiplier) * float(env.scenario["duration_max"])
     try:
-        result = run_episode(env, agent, seed=args.seed, progress=not args.quiet)
+        result = run_episode_safe(
+            env, agent,
+            seed=args.seed,
+            progress=not args.quiet,
+            wall_cap_s=wall_cap_s,
+        )
         if args.save_traj:
             traj_path = Path(args.save_traj)
             traj_path.parent.mkdir(parents=True, exist_ok=True)
