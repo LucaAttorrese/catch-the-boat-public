@@ -604,9 +604,14 @@ def main() -> int:
     use_gui = args.gui and not args.headless
     env = BoatLandingEnv(str(scenario_path), drone_sim=drone_sim, gui=use_gui)
     # Translate the user's wall-cap multiplier into seconds. 0 disables.
+    # `duration_max` is required by every well-formed scenario; missing
+    # it would normally cause `env.reset()` to fail later anyway, but we
+    # default to 60s here so a typo in the scenario YAML still produces
+    # a scored JSON instead of a bare KeyError.
     wall_cap_s: Optional[float] = None
     if args.wall_cap_multiplier and args.wall_cap_multiplier > 0:
-        wall_cap_s = float(args.wall_cap_multiplier) * float(env.scenario["duration_max"])
+        scenario_duration = float(env.scenario.get("duration_max", 60.0))
+        wall_cap_s = float(args.wall_cap_multiplier) * scenario_duration
     try:
         result = run_episode_safe(
             env, agent,

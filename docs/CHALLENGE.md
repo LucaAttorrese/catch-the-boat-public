@@ -259,6 +259,15 @@ parameters that overfit.
   `boat_landing/reference_sim/physics_notes.md` is all you need.
 - **Submitting `agents/drone_sim_baseline.py` verbatim.** The AST
   similarity check caps your sim-track score at 0 if you do.
+- **Introspection / sandbox-escape attempts**: `import inspect` to
+  walk the call stack and reach env internals, `import gc` to scan
+  the heap for the env reference, reading `info` directly, importing
+  `BoatLandingEnv` inside your agent to construct another env,
+  reading files outside your own folder (we don't ship the eval
+  scenarios alongside your code — but if you discover any, reading
+  them is cheating). Any of these patterns triggers
+  `evaluation/code_audit.py` and gets your submission flagged for
+  manual review. Confirmed cheats are **disqualified**.
 
 ## Hardware track (optional, +30 pts)
 
