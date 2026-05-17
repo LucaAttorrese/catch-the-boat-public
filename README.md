@@ -47,12 +47,30 @@ inside a fixed Docker container; see [`docs/DOCKER.md`](docs/DOCKER.md).
 
 ## Quick Start
 
+You'll set up **two parallel environments**:
+
+1. **Local Python** (this section) — to run the baseline on your host
+   with the GUI, develop your agent / sim, run tests, debug
+   interactively. Quick to iterate.
+2. **Docker** ([`docs/DOCKER.md`](docs/DOCKER.md)) — the **scoring
+   contract**. Final evaluation runs inside the container with fixed
+   CPU and memory limits, against the organizer reference simulator.
+   Install it **in parallel** so you don't lose 20 minutes on
+   event day pulling the image.
+
+   > ⚠️ **On Windows: install Docker Desktop with administrator rights
+   > (system-wide, NOT "user only").** Per-user installs cause volume
+   > mount and WSL 2 integration problems. Full steps in
+   > [`docs/DOCKER.md#installing-docker`](docs/DOCKER.md#installing-docker).
+
+### Local Python
+
 > **Use Python 3.10.** PyBullet's only Windows-compatible PyPI builds
 > target ≤ cp310 (see [Windows install notes](#windows-install-notes)
 > below). On Linux/macOS any 3.10–3.12 works.
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/SkyEUSoftware/catch-the-boat-public.git catch-the-boat
 cd catch-the-boat
 
 # Linux / macOS:

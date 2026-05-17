@@ -17,6 +17,12 @@ root.
 > wheels; macOS Intel pip wheels; macOS ARM **only via conda-forge**;
 > Windows **only via conda-forge**. See sections 1.1–1.3 for the
 > OS-by-OS details.
+>
+> **Docker is a separate prerequisite** for running against the
+> organizer reference simulator. Install it in parallel — see
+> [`DOCKER.md#installing-docker`](DOCKER.md#installing-docker). On
+> Windows install with administrator rights (system-wide), not
+> "user only".
 
 ---
 

@@ -5,8 +5,94 @@ limits, on a single organizer machine. The container is the **contract**:
 if your code meets the latency budget *inside it*, it meets it at
 evaluation time. If it doesn't, it won't.
 
-This page explains how to run the same container locally so you can dev
-against the exact same target.
+This page explains how to install Docker, build the local image, and
+run the same container the organizers will run.
+
+---
+
+## Installing Docker
+
+Install **before** the event. Docker Desktop is a 600 MB-2 GB download
+and the `:full` image pull is ~500 MB — both are slow on event-day Wi-Fi.
+
+### Windows — install with ADMINISTRATOR rights, system-wide
+
+> ⚠️ **Do NOT install Docker Desktop in "user only" mode.** A per-user
+> install fails on volume mounts (your `${PWD}:/workspace` mount may
+> silently land in a sandboxed location), the WSL 2 backend
+> integration doesn't always register, and the `docker` CLI sometimes
+> ends up not on PATH for other shells. **Always install with admin
+> rights, in the system-wide default location** (`C:\Program Files\Docker`).
+
+Steps:
+
+1. Download Docker Desktop for Windows from
+   <https://www.docker.com/products/docker-desktop/>.
+2. **Right-click the installer → "Run as administrator"**. If the UAC
+   prompt doesn't show up, you're not running with elevation — abort
+   and restart the install. The installer's default options are
+   correct; do not change the install path away from
+   `C:\Program Files\Docker`.
+3. When asked: select **"Use the WSL 2 based engine"** (default).
+4. Reboot when prompted.
+5. After reboot, open Docker Desktop once so it can finish initializing
+   WSL 2 (it'll ask to download / update the WSL 2 kernel — accept).
+6. Open a **new** PowerShell (any user, not necessarily admin) and run:
+
+   ```powershell
+   docker --version
+   docker run --rm hello-world
+   ```
+
+   Both must succeed. If the second one prints "Hello from Docker!",
+   you're done.
+
+Requirements:
+- Windows 10 22H2 / 11 (64-bit)
+- WSL 2 enabled (`wsl --install` if you haven't already)
+- Virtualization (VT-x / AMD-V) enabled in BIOS — most laptops have it
+  on by default; if `docker run` complains about virtualization, reboot
+  into BIOS and enable it
+- 8 GB+ RAM (16 GB recommended; the eval container is given 8 GB so
+  with the host OS overhead you want 16 to be comfortable)
+- ~10 GB free disk for images + container layers
+
+### macOS
+
+1. Download Docker Desktop for Mac (pick the Apple Silicon build on
+   M1/M2/M3/M4 hardware, Intel build on older Macs).
+2. Drag to `/Applications`, open, accept the "Docker needs privileged
+   access" prompt (this is a one-time admin password — it's how Docker
+   sets up the privileged helper).
+3. Verify:
+
+   ```bash
+   docker --version
+   docker run --rm hello-world
+   ```
+
+### Linux
+
+Use the official repository to install Docker Engine + Compose (NOT
+Docker Desktop unless you specifically want the GUI):
+
+- Ubuntu / Debian: <https://docs.docker.com/engine/install/ubuntu/>
+- Fedora: <https://docs.docker.com/engine/install/fedora/>
+- Arch: `sudo pacman -S docker docker-buildx docker-compose`
+
+Then add yourself to the `docker` group so you can run `docker` without
+`sudo`:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker          # picks up the new group in this shell
+docker run --rm hello-world
+```
+
+If `hello-world` works without `sudo`, you're set. Log out and back in
+to make the group change permanent for future shells.
+
+---
 
 ## Two images
 
