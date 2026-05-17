@@ -3,7 +3,7 @@
 Usage:
     python evaluation/evaluate.py --agent agents/agent_baseline.py \
         --drone-sim agents/drone_sim_baseline.py \
-        --drone drones/quadcopter.yaml \
+        --drone drones/vtol.yaml \
         --scenario scenarios/easy.yaml --headless
 
 Prints a single JSON object (the result) to stdout. With --headless the
@@ -16,7 +16,7 @@ Both --agent and --drone-sim are dynamically loaded:
       `DroneSim` class taking a spec path.
 
 Defaults: agents/agent_baseline.py + agents/drone_sim_baseline.py +
-drones/quadcopter.yaml.
+drones/vtol.yaml.
 
 Optionally, the agent may expose:
     * `get_last_estimate() -> dict|None` so the scorer can compute the
@@ -61,7 +61,7 @@ SCENARIO_DIR = REPO_ROOT / "scenarios"
 DRONES_DIR = REPO_ROOT / "drones"
 DEFAULT_AGENT = REPO_ROOT / "agents" / "agent_baseline.py"
 DEFAULT_DRONE_SIM = REPO_ROOT / "agents" / "drone_sim_baseline.py"
-DEFAULT_DRONE_SPEC = DRONES_DIR / "quadcopter.yaml"
+DEFAULT_DRONE_SPEC = DRONES_DIR / "vtol.yaml"
 
 
 def resolve_scenario(name_or_path: str) -> Path:
@@ -78,7 +78,7 @@ def resolve_scenario(name_or_path: str) -> Path:
 
 
 def resolve_drone_spec(name_or_path: str) -> Path:
-    """Allow either a bare drone spec name (e.g. 'quadcopter') or a full path."""
+    """Allow either a bare drone spec name (e.g. 'vtol') or a full path."""
     p = Path(name_or_path)
     if p.is_file():
         return p
@@ -542,7 +542,7 @@ def main() -> int:
     parser.add_argument(
         "--drone",
         default=str(DEFAULT_DRONE_SPEC),
-        help="Drone spec name (e.g. 'quadcopter', 'vtol') or path to YAML. "
+        help="Drone spec name (e.g. 'vtol') or path to YAML. "
         f"Default: {DEFAULT_DRONE_SPEC.relative_to(REPO_ROOT)}",
     )
     parser.add_argument(

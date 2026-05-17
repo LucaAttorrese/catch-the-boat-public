@@ -264,7 +264,7 @@ def load_drone_spec(path) -> DroneSpec:
     """Parse a drones/*.yaml file into a typed DroneSpec.
 
     Raises ValueError on missing/malformed fields. The schema is defined
-    by the comments in drones/quadcopter.yaml — keep them in sync.
+    by the comments in drones/vtol.yaml — keep them in sync.
     """
     path = Path(path)
     with open(path, "r", encoding="utf-8") as f:

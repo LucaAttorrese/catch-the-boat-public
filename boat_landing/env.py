@@ -87,7 +87,7 @@ def load_scenario(path) -> Dict:
 
 
 def _default_drone_sim() -> DroneSimulator:
-    """Construct the reference drone simulator + quadcopter spec.
+    """Construct the reference drone simulator + VTOL spec.
 
     Used when callers (tests, legacy scripts) instantiate the env without
     explicitly passing a drone sim. Production CLIs (`evaluate.py`,
@@ -96,7 +96,7 @@ def _default_drone_sim() -> DroneSimulator:
     # Lazy import: the reference sim lives under `agents/` and we do not
     # want a hard dependency cycle if the env is used standalone.
     from agents.drone_sim_baseline import BaselineDroneSimulator
-    return BaselineDroneSimulator(str(REPO_ROOT / "drones" / "quadcopter.yaml"))
+    return BaselineDroneSimulator(str(REPO_ROOT / "drones" / "vtol.yaml"))
 
 
 class BoatLandingEnv:
@@ -139,7 +139,7 @@ class BoatLandingEnv:
     LANDING_VERT_VEL_TOL = 1.5
     CRASH_VERT_VEL = 3.0
     LANDING_HORIZ_TOL = 1.0
-    DEFAULT_YAW_ALIGNMENT_TOL_DEG = 25.0   # used if scenario omits the field
+    DEFAULT_YAW_ALIGNMENT_TOL_DEG = 30.0   # used if scenario omits the field
 
     OUTCOMES = ("LANDED", "CRASHED", "TIMEOUT", "OUT_OF_BATTERY", "ABORTED")
 

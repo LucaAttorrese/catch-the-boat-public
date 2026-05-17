@@ -16,12 +16,6 @@
 
 team:           "Your Team Name"
 
-# One of: quadcopter | vtol
-# This is the drone spec your AGENT runs against. The simulator MUST
-# work for both specs (Tier 0.4 verifies that), but you commit to one
-# for the agent challenge.
-chosen_drone:   "quadcopter"
-
 # Paths relative to the repo root.
 drone_sim_path: "agents/drone_sim_baseline.py"
 agent_path:     "agents/agent_baseline.py"

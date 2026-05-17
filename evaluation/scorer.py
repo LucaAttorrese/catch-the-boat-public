@@ -1,25 +1,25 @@
 """Scoring for the Catch the Boat challenge.
 
-Score formula (frozen — see docs/SCORING.md for the rationale):
+Score formula (frozen — see docs/AGENT_SCORING.md for the rationale):
 
     if outcome == "CRASHED":           score = -20
     elif outcome in {"TIMEOUT",
                      "OUT_OF_BATTERY"}: score = 0
     elif outcome == "LANDED":
-        base               = 100
+        base               = 50
         precision_factor   = max(0,    1 - landing_position_error / 1.5)
         time_factor        = max(0.5,  1 - time_to_land / duration_max)
         battery_factor     = max(0.3,  battery_remaining)
-        soft_landing_bonus = 10  if  max_descent_velocity < 1.0  else 0
-        estimation_bonus   = compute_estimation_bonus(...)        # 0..20
+        soft_landing_bonus = 5   if  max_descent_velocity < 1.0  else 0
+        estimation_bonus   = compute_estimation_bonus(...)        # 0..15
 
         score = (base * precision_factor * time_factor * battery_factor
                  + soft_landing_bonus + estimation_bonus)
 
 HW-readiness add-ons (only awarded when outcome == LANDED):
-    fc_compat_bonus    = 5  if agent.act_setpoint was used                  (deploy-friendly output)
-    latency_bonus      = 5  if act() p95 latency <= LATENCY_BUDGET_MS       (HW-realistic CPU budget)
-    recovery_bonus     = 5  if scenario.recovery and marker re-acquired     (only on recovery-tagged scenarios)
+    fc_compat_bonus    = 15  if agent.act_setpoint was used                 (deploy-friendly output)
+    latency_bonus      = 15  if act() p95 latency <= LATENCY_BUDGET_MS      (HW-realistic CPU budget)
+    recovery_bonus     = 15  if scenario.recovery and marker re-acquired    (only on recovery-tagged scenarios)
 """
 
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -29,19 +29,19 @@ import numpy as np
 
 CRASH_PENALTY = -20.0
 LATENCY_BUDGET_MS = 20.0          # p95 cap for the latency bonus
-FC_COMPAT_BONUS = 5.0
-LATENCY_BONUS = 5.0
-RECOVERY_BONUS = 5.0
+FC_COMPAT_BONUS = 15.0
+LATENCY_BONUS = 15.0
+RECOVERY_BONUS = 15.0
 
 
 def compute_estimation_bonus(rmse: Optional[float]) -> float:
-    """Map a 2D-position RMSE (in metres) to a 0..20 bonus.
+    """Map a 2D-position RMSE (in metres) to a 0..15 bonus.
 
-    rmse == 0 m -> 20.  rmse >= 2 m or None -> 0.  Linear in between.
+    rmse == 0 m -> 15.  rmse >= 2 m or None -> 0.  Linear in between.
     """
     if rmse is None or not np.isfinite(rmse):
         return 0.0
-    return float(max(0.0, 20.0 * (1.0 - min(rmse, 2.0) / 2.0)))
+    return float(max(0.0, 15.0 * (1.0 - min(rmse, 2.0) / 2.0)))
 
 
 def compute_estimation_rmse(
@@ -117,11 +117,11 @@ def compute_score(
         return 0.0, breakdown
 
     err = float(landing_position_error if landing_position_error is not None else 0.0)
-    base = 100.0
+    base = 50.0
     precision_factor = max(0.0, 1.0 - err / 1.5)
     time_factor = max(0.5, 1.0 - time_to_land / max(duration_max, 1e-6))
     battery_factor = max(0.3, float(battery_remaining))
-    soft_bonus = 10.0 if max_descent_velocity < 1.0 else 0.0
+    soft_bonus = 5.0 if max_descent_velocity < 1.0 else 0.0
     est_bonus = compute_estimation_bonus(estimation_rmse)
 
     landing_score = base * precision_factor * time_factor * battery_factor

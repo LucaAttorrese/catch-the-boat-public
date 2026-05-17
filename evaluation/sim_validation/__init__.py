@@ -25,7 +25,6 @@ TIER0_TESTS = [
     "evaluation.sim_validation.t0_protocol",
     "evaluation.sim_validation.t0_hover_steady",
     "evaluation.sim_validation.t0_determinism",
-    "evaluation.sim_validation.t0_spec_driven",
     "evaluation.sim_validation.t0_variable_dt",
 ]
 

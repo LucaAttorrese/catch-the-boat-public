@@ -27,5 +27,5 @@ camera:
   fps: 0                      # 0 = render every env step (50 Hz)
   occlusion_probability: 0.0
 landing:
-  yaw_alignment_tol_deg: 30.0   # max yaw misalignment between drone fuselage and boat length
+  yaw_alignment_tol_deg: 35.0   # max yaw misalignment between drone fuselage and boat length
 seed: 42

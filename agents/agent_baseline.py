@@ -151,7 +151,7 @@ class BaselineAgent:
 
     def __init__(self, drone_spec: Optional[DroneSpec] = None):
         if drone_spec is None:
-            drone_spec = load_drone_spec(REPO_ROOT / "drones" / "quadcopter.yaml")
+            drone_spec = load_drone_spec(REPO_ROOT / "drones" / "vtol.yaml")
         self.spec: DroneSpec = drone_spec
         self.attitude_ctrl = DefaultAttitudeController(drone_spec)
         # Pre-compute the per-motor hover throttle for safe-fallback recovery.

@@ -100,7 +100,7 @@ floor, not the ceiling.
 ```bash
 ./docker/run-local.sh python evaluation/sim_scorer.py \
     --drone-sim   agents/drone_sim_baseline.py \
-    --drone       quadcopter \
+    --drone       vtol \
     --submission  evaluation/submission_baseline.yaml
 ```
 
@@ -123,7 +123,7 @@ You're now at `/workspace` in the container. Edit code on your host
 
 ## Calibrating your machine
 
-The 20 ms p95 latency budget (see `docs/SCORING.md`, "HW‑readiness")
+The 20 ms p95 latency budget (see `docs/AGENT_SCORING.md`, "HW‑readiness")
 is measured **on the organizer eval machine**, inside the container.
 If your laptop is much faster (or slower) than that machine, your
 local timings won't match what you'll see at scoring time.

@@ -90,10 +90,10 @@ def make_hover_action(spec: DroneSpec) -> np.ndarray:
     """Per-motor throttle that produces hover thrust under symmetric
     motor placement (all motors thrust along body +z, equal moment arms).
 
-    Both shipped specs (quadcopter.yaml, vtol.yaml) are symmetric so this
-    is the analytically correct hover. For asymmetric sims the proper
-    hover comes from the inverse mixer in DefaultAttitudeController —
-    use that one instead in tests where attitude must be stabilized.
+    The shipped vtol.yaml is symmetric in this sense so this is the
+    analytically correct hover. For asymmetric sims the proper hover
+    comes from the inverse mixer in DefaultAttitudeController — use
+    that one instead in tests where attitude must be stabilized.
     """
     T_per_motor = spec.hover_thrust_per_motor
     omega_hover = float(np.sqrt(max(T_per_motor, 0.0) / max(spec.propeller.thrust_coefficient, 1e-12)))

@@ -10,32 +10,25 @@ split accordingly.
 
 ---
 
-## Choosing your drone — quad vs VTOL
+## The airframe — VTOL
 
-You commit to one airframe in `submission.yaml`'s `chosen_drone`
-field. Your **agent** flies that one; your **simulator** must work for
-both (T0.4 verifies it).
+You're flying a single airframe: `drones/vtol.yaml`. The defining
+characteristics that will shape your agent are:
 
-| | `quadcopter.yaml` | `vtol.yaml` |
+| Property | Value | Implication |
 | --- | --- | --- |
-| Mass | 1.5 kg | 10 kg |
-| Inertia | symmetric (Ix = Iy = 0.021) | asymmetric (Ix=2.54, Iy=3.47, Izz=5.74) |
-| Yaw authority | Strong (~14 rad/s²) | **Weak (~0.85 rad/s²)** — 30× slower |
-| Pitch responsiveness | Snappy | Sluggish (long fuselage) |
-| Roll responsiveness | Snappy | Moderate |
-| Thrust-to-weight | ~2.5 | ~2.0 |
-| Aero drag | Low | High (1.7 m wings catch air sideways) |
-| Wing-perpendicular landing | Easy to achieve at touchdown | Must commit to yaw setpoint **early** |
+| Mass | 10 kg | High control authority needed; thrust-to-weight ~2.0 |
+| Inertia | asymmetric (Ix=2.54, Iy=3.47, Izz=5.74) kg·m² | Cross-axis coupling matters; T1.D rewards modelling it |
+| Yaw authority | **~0.85 rad/s² max angular accel** | Sluggish in yaw — start aligning EARLY |
+| Pitch responsiveness | Sluggish (long fuselage, Iy=3.47) | Bigger lookahead for forward acceleration |
+| Roll responsiveness | Moderate (Ix=2.54) | Snappier than pitch |
+| Aero drag | High along body y (1.7 m wings catch air sideways) | Drag affects lateral approach trajectories |
+| Fuselage-aligned landing | Must commit to yaw setpoint **early** | The single biggest failure mode of a naive agent |
 
-**Pick the quad** if your team's strength is perception/estimation/RL
-and you want the simplest controlled object.
-
-**Pick the VTOL** if your team has a controls person who wants to
-write a non-trivial attitude/yaw planner and earn that as a
-differentiator.
-
-Either choice can win. The agent score isn't penalized for the harder
-airframe; the *control problem* is just different.
+The challenge isn't "easier" or "harder" airframe — it's the only
+airframe, and the rubric is calibrated to it. The control problem is
+yaw-dominated: agents that don't actively yaw fail the landing
+condition on every non-trivial scenario.
 
 ---
 
@@ -49,13 +42,13 @@ python evaluation/evaluate.py --scenario medium --headless --seed 42
 python evaluation/evaluate.py --scenario hard   --headless --seed 42
 ```
 
-Empirical results on a clean install (seed 42, default quadcopter):
+Empirical results on a clean install (seed 42, default VTOL):
 
 | Scenario | Outcome | Why |
 | -------- | ------- | --- |
-| EASY     | LANDED ~105/130 | Stationary boat, no wind, no oscillation, fps=50, fog=0. |
-| MEDIUM   | TIMEOUT | Boat moves at 1.5 m/s + 20 fps camera + 0.05 fog density + 20° yaw tolerance. The baseline doesn't predict boat motion (lags behind) AND doesn't yaw-align (fails landing condition). It hovers around the marker without committing. |
-| HARD     | TIMEOUT/CRASHED | Curved trajectory + 10 fps + 0.15 fog + 5 px motion blur + 15° yaw tol + 5 %/s occlusions. Baseline can't track a moving target through fog with stale frames. |
+| EASY     | LANDED ~55/70 (+15 latency bonus) | Stationary boat, no wind, no oscillation, fps=50, fog=0. |
+| MEDIUM   | TIMEOUT | Boat moves at 1.5 m/s + 20 fps camera + 0.05 fog density + 25° yaw tolerance. The baseline doesn't predict boat motion (lags behind) AND doesn't yaw-align (fails landing condition). It hovers around the marker without committing. |
+| HARD     | TIMEOUT/CRASHED | Curved trajectory + 10 fps + 0.15 fog + 5 px motion blur + 20° yaw tol + 5 %/s occlusions. Baseline can't track a moving target through fog with stale frames. |
 
 The shortest path to better numbers is listed below in priority order.
 Doing **#1 (Kalman) + #2 (yaw alignment)** alone typically pulls
@@ -84,7 +77,7 @@ MEDIUM into the LANDED column.
   ```bash
   python evaluation/sim_scorer.py \
       --drone-sim teams/myteam/drone_sim.py \
-      --drone     quadcopter \
+      --drone     vtol \
       --submission teams/myteam/submission.yaml
   ```
 
@@ -120,26 +113,25 @@ hazy detections.
   prediction by more than ~3σ. Otherwise a single bad frame knocks the
   filter sideways and the controller follows.
 
-## Improvement #2 — Active yaw alignment (NEW THIS YEAR)
+## Improvement #2 — Active yaw alignment
 
-The landing condition this year requires the drone's fuselage axis to
-be aligned with the boat's heading axis (modulo π) within tolerance
-(30° on easy, 20° on medium, 15° on hard). The baseline commands
-`yaw_rate_cmd = 0` always — it crashes the alignment check on every
-non-trivial scenario.
+The landing condition requires the drone's fuselage axis to be aligned
+with the boat's heading axis (modulo π) within tolerance (35° on easy,
+25° on medium, 20° on hard). The baseline commands `yaw_rate_cmd = 0`
+always — it crashes the alignment check on every non-trivial scenario.
 
 - **Estimate boat heading.** From two consecutive position estimates,
   `boat_heading ≈ atan2(Δy, Δx)`. From the marker's rvec, you can also
   recover boat yaw directly (more accurate when the boat is moving
   slowly). Combine both; the rvec is noisier but instantaneous.
 - **Pick the closer alignment target** between `boat_heading` and
-  `boat_heading + π`. Both satisfy the landing condition (the wing-
-  perpendicular check is mod π). You don't have to commit to a
+  `boat_heading + π`. Both satisfy the landing condition (the
+  fuselage-alignment check is mod π). You don't have to commit to a
   specific drone-forward direction.
-- **Set yaw setpoint EARLY.** On the VTOL spec, achieving 15° yaw
-  alignment from a 90° error takes ~3 seconds because of the slow yaw
-  authority. Start aligning during APPROACH, not LAND. The quad has
-  ~30× faster yaw and can converge in <0.5 s.
+- **Set yaw setpoint EARLY.** On the VTOL, achieving 20° yaw alignment
+  from a 90° error takes ~3 seconds because of the slow yaw authority
+  (~0.85 rad/s² max angular accel). Start aligning during APPROACH,
+  not LAND.
 - **Yaw rate command, not yaw angle command.** The
   `DefaultAttitudeController` uses a P-loop on yaw rate (no integral),
   so command `yaw_rate_des = K_yaw * (yaw_target - drone_yaw)` and
@@ -277,18 +269,7 @@ message is public.
 
 You don't need a CAD drawing, but a few numbers help.
 
-### Quadcopter spec (1.5 kg)
-
-| Thing                              | Size            |
-| ---------------------------------- | --------------- |
-| Drone mass                         | 1.5 kg          |
-| Drone collision box (fuselage)     | 0.40 × 0.40 × 0.10 m |
-| Inertia (Ixx, Iyy, Izz)            | (0.021, 0.021, 0.040) kg·m² |
-| Rotor diameter                     | 0.127 m (5") |
-| Per-motor max thrust               | ~9.2 N (T/W ≈ 2.5) |
-| Yaw authority                      | ~14 rad/s² max angular accel |
-
-### VTOL spec (10 kg)
+### VTOL spec (10 kg) — the only airframe
 
 | Thing                              | Size            |
 | ---------------------------------- | --------------- |
@@ -300,7 +281,7 @@ You don't need a CAD drawing, but a few numbers help.
 | Per-motor max thrust               | ~49 N (T/W ≈ 2.0) |
 | Yaw authority                      | **~0.85 rad/s² max angular accel** |
 
-### Boat / platform / camera (same for both drones)
+### Boat / platform / camera
 
 | Thing                                 | Size                  |
 | ------------------------------------- | --------------------- |
@@ -313,8 +294,8 @@ You don't need a CAD drawing, but a few numbers help.
 | Physics substep rate                  | 250 Hz (PHYSICS_DT = 0.004 s) |
 
 The drone **fits comfortably** on the platform in both axes (collision
-box << platform footprint). Wing alignment is the binding constraint,
-not lateral position.
+box << platform footprint). Fuselage alignment is the binding
+constraint, not lateral position.
 
 ---
 
@@ -342,7 +323,7 @@ not lateral position.
   The legacy 4-DoF (thrust/roll/pitch/yaw_rate) interface still
   exists via `DefaultAttitudeController` if you don't want to write
   a controller — use that and emit motor throttles.
-- **Wing-perpendicular landing.** A platform contact with yaw error
+- **Fuselage-aligned landing.** A platform contact with yaw error
   > tolerance is classified as CRASHED (not LANDED). The baseline
   loses points on this; you won't notice unless you check the
   termination outcome.
@@ -391,7 +372,7 @@ not lateral position.
 
 ## When to stop
 
-Once your MEDIUM agent score crosses ~80 and HARD crosses ~40, AND
+Once your MEDIUM agent score crosses ~45 and HARD crosses ~20, AND
 your simulator score is at ≥20/30, you're in prize territory.
 Further improvements have steeply diminishing returns — spend any
 remaining time on robustness (different seeds, different start

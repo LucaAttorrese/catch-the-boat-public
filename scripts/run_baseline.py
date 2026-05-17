@@ -36,7 +36,7 @@ def main() -> int:
     ap.add_argument(
         "--drone",
         default=str(DEFAULT_DRONE_SPEC),
-        help="Drone spec name (e.g. 'quadcopter', 'vtol') or path to YAML.",
+        help="Drone spec name (e.g. 'vtol') or path to YAML.",
     )
     ap.add_argument("--visualize", action="store_true", help="Open the pygame viewer")
     ap.add_argument(

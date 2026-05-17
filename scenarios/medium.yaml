@@ -27,5 +27,5 @@ camera:
   fps: 20                     # 20 Hz: agent sees a fresh frame every ~2.5 env steps
   occlusion_probability: 0.0
 landing:
-  yaw_alignment_tol_deg: 20.0
+  yaw_alignment_tol_deg: 25.0
 seed: 42

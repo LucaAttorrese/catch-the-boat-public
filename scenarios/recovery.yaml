@@ -10,7 +10,7 @@
 #      within `recovery_check.reacquire_window_s` after the blackout ends.
 #
 # Both criteria must pass to claim the HW-readiness recovery bonus (+5).
-# See evaluation/scorer.py and docs/SCORING.md.
+# See evaluation/scorer.py and docs/AGENT_SCORING.md.
 scenario_id: "recovery"
 duration_max: 45.0
 battery_initial: 1.0
@@ -50,7 +50,7 @@ camera:
   occlusion_probability: 0.0
 
 landing:
-  yaw_alignment_tol_deg: 25.0
+  yaw_alignment_tol_deg: 30.0
 
 # Bonus check configuration, consumed by evaluate.py. The drone must
 # stay close to its position at blackout start, and the agent's

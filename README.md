@@ -14,9 +14,8 @@ camera, an ArUco marker on the deck, and the drone's own state.
 You ship **two** Python files:
 
 * `drone_sim.py` — your physics: motor commands → RPM → thrust →
-  Newton-Euler → new state. Reads the drone spec YAML you choose
-  (`drones/quadcopter.yaml`, 1.5 kg agile quad, or `drones/vtol.yaml`,
-  10 kg heavy multirotor with weak yaw).
+  Newton-Euler → new state. Reads `drones/vtol.yaml` (10 kg heavy
+  multirotor with weak yaw — the only airframe shipped).
 * `agent.py` — your perception + estimation + control. Given a 50 Hz
   stream of `(camera, drone state, battery, time)` observations, it
   outputs a per-motor throttle vector.
@@ -24,18 +23,18 @@ You ship **two** Python files:
 The env (boat, wind, camera, contact, scoring) is sealed and provided
 by the organizers. Your agent never sees the boat's true position — it
 has to infer it from the ArUco marker. Landing is "soft AND on-platform
-AND wings perpendicular to boat heading" — yaw alignment is part of the
-landing condition this year.
+AND fuselage aligned with boat heading (mod π)" — yaw alignment is
+part of the landing condition.
 
 Three public scenarios (`easy`, `medium`, `hard`) ship with this repo.
 The real evaluation scenarios live with the organizers and are
 revealed after the event.
 
 **Four independent scores, summed (max 205 pts):**
-* Agent landing performance (0–130) — see [`docs/SCORING.md`](docs/SCORING.md).
-* Agent HW-readiness bonuses (0–15) — FC-compatible output, latency budget, marker-loss recovery.
+* Agent landing performance (0–70) — see [`docs/AGENT_SCORING.md`](docs/AGENT_SCORING.md).
+* Agent HW-readiness bonuses (0–45) — FC-compatible output, latency budget, marker-loss recovery.
 * Simulator physical fidelity (0–30) — see [`docs/SIM_SCORING.md`](docs/SIM_SCORING.md).
-* Optional hardware track (0–30) — concept pitch + CAD + repo fork.
+* Optional hardware track (0–60) — concept pitch + CAD + working implementation in any framework.
 
 Your **agent** is always scored against the organizer reference
 simulator (a compiled binary in `boat_landing/reference_sim/`), not
@@ -103,8 +102,7 @@ catch-the-boat/
 │   ├── env.py             #   - kinematic drone body, contact detection
 │   ├── drone_interface.py #   - DroneSimulator Protocol + DroneSpec
 │   └── controllers.py     #   - DefaultAttitudeController utility
-├── drones/                # Drone physical specs (read-only YAML)
-│   ├── quadcopter.yaml    #   - 1.5 kg X-quad, full yaw authority
+├── drones/                # Drone physical spec (read-only YAML)
 │   └── vtol.yaml          #   - 10 kg heavy multirotor, weak yaw
 ├── agents/                # Reference + template for your submission
 │   ├── drone_sim_baseline.py   # tier-0 reference simulator
@@ -114,9 +112,9 @@ catch-the-boat/
 ├── evaluation/            # Two scorers: agent (evaluate.py) + sim (sim_scorer.py)
 │   ├── sim_validation/    #   - 4 gate + 6 auto-tested feature tests
 │   └── submission*.yaml   #   - submission manifest (template + baseline)
+├── docs/                  # CHALLENGE, AGENT_SCORING, SIM_SCORING, API, TIPS, COMMANDS
 ├── visualizer/            # Pygame demo viewer
 ├── scripts/               # Launchers, setup checker, ArUco generator
-├── docs/                  # CHALLENGE, SCORING, SIM_SCORING, API, TIPS
 └── tests/                 # pytest suite (env + baseline + scoring + sim_validation)
 ```
 
@@ -175,27 +173,20 @@ for fidelity bonuses.
 
 | Scenario | Boat motion       | Wind            | Oscillation | Camera fps | Fog | Yaw tol |
 | -------- | ----------------- | --------------- | ----------- | ---------- | --- | ------- |
-| EASY     | static            | none            | none        | 50         | 0   | 30°     |
-| MEDIUM   | linear @ 1.5 m/s  | mild (0.3 N)    | mild        | 20         | 0.05 | 20°    |
-| HARD     | curved @ 2.5 m/s  | gusty (0.6 N)   | strong      | 10         | 0.15 | 15°    |
+| EASY     | static            | none            | none        | 50         | 0   | 35°     |
+| MEDIUM   | linear @ 1.5 m/s  | mild (0.3 N)    | mild        | 20         | 0.05 | 25°    |
+| HARD     | curved @ 2.5 m/s  | gusty (0.6 N)   | strong      | 10         | 0.15 | 20°    |
 
 The baseline lands on EASY, times-out on MEDIUM, and never lands on
 HARD — there's lots of headroom for a Kalman filter on the boat
-estimate, velocity feed-forward, **active yaw alignment** (the wing-
-perpendicular landing condition is new), and motion-blur / fog
-robustness. See [`docs/TIPS.md`](docs/TIPS.md) for the priority order.
+estimate, velocity feed-forward, **active yaw alignment**, and
+motion-blur / fog robustness. See [`docs/TIPS.md`](docs/TIPS.md) for
+the priority order.
 
-Run a scenario with the baseline (defaults to `quadcopter` spec):
+Run a scenario with the baseline (defaults to VTOL spec):
 
 ```bash
 python evaluation/evaluate.py --scenario medium --headless --seed 42
-```
-
-Or pick the harder VTOL airframe:
-
-```bash
-python evaluation/evaluate.py --scenario medium --drone vtol \
-                              --headless --seed 42
 ```
 
 You can swap each piece independently:
@@ -204,7 +195,6 @@ You can swap each piece independently:
 python evaluation/evaluate.py \
     --agent      teams/myteam/agent.py \
     --drone-sim  teams/myteam/drone_sim.py \
-    --drone      vtol \
     --scenario   hard --headless --seed 42
 ```
 
@@ -216,7 +206,7 @@ sim-second progress trace on stderr. Use it to A/B your changes.
 ```bash
 python evaluation/sim_scorer.py \
     --drone-sim   agents/drone_sim_baseline.py \
-    --drone       quadcopter \
+    --drone       vtol \
     --submission  evaluation/submission_baseline.yaml
 ```
 
@@ -253,10 +243,10 @@ display-free.
 Four scores, summed (max 205 pts):
 
 ```text
-total = agent_landing_score (0..130)            # SCORING.md
-      + agent_hw_readiness_bonus (0..15)        # SCORING.md (FC compat + latency + recovery)
+total = agent_landing_score (0..70)             # AGENT_SCORING.md
+      + agent_hw_readiness_bonus (0..45)        # AGENT_SCORING.md (FC compat + latency + recovery)
       + simulator_quality_score (0..30)         # SIM_SCORING.md
-      + hardware_track_score (0..30)            # CHALLENGE.md HW track
+      + hardware_track_score (0..60)            # CHALLENGE.md HW track
 ```
 
 The agent track is always scored against the organizer reference
@@ -273,16 +263,16 @@ score = base * precision_factor * time_factor * battery_factor
 
 with multiplicative factors floored so a slow but successful landing
 is still meaningfully rewarded. Detail and worked examples in
-[`docs/SCORING.md`](docs/SCORING.md).
+[`docs/AGENT_SCORING.md`](docs/AGENT_SCORING.md).
 
 | Outcome           | Agent score range |
 | ----------------- | ----------------- |
 | Crash             | `-20`             |
 | Timeout / battery | `0`               |
-| Land (typical)    | `~30–110`         |
-| Land (great)      | `~120–130`        |
+| Land (typical)    | `~15–55`          |
+| Land (great)      | `~60–70`          |
 
-**Simulator score** rewards physical fidelity. Five mandatory gate
+**Simulator score** rewards physical fidelity. Four mandatory gate
 tests (incl. T0.5 hidden category) + six auto-tested fidelity features:
 
 | Component                                       | Max points |
@@ -310,8 +300,8 @@ Three files (or a directory containing them):
    `DroneSim` class.
 2. **`agent.py`** — exposes `make_agent(drone_spec)` or an `Agent`
    class.
-3. **`submission.yaml`** — declares which drone you chose, file paths,
-   and which Tier 1 simulator features you implemented. Template at
+3. **`submission.yaml`** — file paths and which Tier 1 simulator
+   features you implemented. Template at
    [`evaluation/submission.yaml.template`](evaluation/submission.yaml.template),
    detailed schema in [`docs/SIM_SCORING.md`](docs/SIM_SCORING.md#submission-manifest).
 
@@ -328,8 +318,8 @@ will be announced in the opening keynote — placeholder until then.
 The single biggest **agent** lever is a **Kalman filter on the boat's
 (x, y, vx, vy)**. The baseline trusts every ArUco detection blindly —
 that's noise the controller will chase forever. Fix that first. The
-second biggest is **active yaw control** to satisfy the wing-
-perpendicular landing condition (the baseline doesn't yaw and it shows).
+second biggest is **active yaw control** to satisfy the fuselage-aligned
+landing condition (the baseline doesn't yaw and it shows).
 
 The single biggest **simulator** lever is implementing the cheap Tier 1
 features first: motor lag is already in the baseline, so you get to 5
@@ -374,19 +364,12 @@ Expected. Tune `cv2.aruco.DetectorParameters` (especially
 filter — see [`docs/TIPS.md`](docs/TIPS.md).
 
 **Q. Do I have to yaw the drone?**
-**Yes.** The landing condition this year requires the drone's fuselage
-to be aligned with the boat's heading axis (modulo π) within a tolerance
-that ranges from 30° (easy) to 15° (hard). The baseline doesn't yaw and
-fails this on every non-trivial scenario. If you choose the VTOL spec,
-yaw is even harder because authority is ~30× weaker — start aligning
-during APPROACH, not at touchdown.
-
-**Q. Quad or VTOL — which should I pick?**
-The quad is easier to fly (full yaw authority, snappy attitude). The
-VTOL is harder (weak yaw, sluggish pitch) but the env doesn't penalize
-you for choosing it — both are valid for the agent score. Pick what
-fits your team's strengths. Both use the same `agent.py` code; only
-the simulator and spec change.
+**Yes.** The landing condition requires the drone's fuselage to be
+aligned with the boat's heading axis (modulo π) within a tolerance
+that ranges from 35° (easy) to 20° (hard). The baseline doesn't yaw
+and fails this on every non-trivial scenario. Yaw authority on the
+VTOL is weak (slow `Izz`, small `k_Q/k_T`) — start aligning during
+APPROACH, not at touchdown.
 
 **Q. Do I have to write a `drone_sim.py`?**
 Yes — but only for the sim-track score. The agent itself is run

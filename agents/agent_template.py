@@ -55,9 +55,9 @@ class TemplateAgent:
     def __init__(self, drone_spec: Optional[DroneSpec] = None):
         # The env passes the active drone spec at construction. If you
         # instantiate this agent standalone (tests, notebooks), it falls
-        # back to drones/quadcopter.yaml.
+        # back to drones/vtol.yaml.
         if drone_spec is None:
-            drone_spec = load_drone_spec(REPO_ROOT / "drones" / "quadcopter.yaml")
+            drone_spec = load_drone_spec(REPO_ROOT / "drones" / "vtol.yaml")
         self.spec: DroneSpec = drone_spec
         # Default attitude controller: maps (thrust, roll, pitch, yaw_rate)
         # setpoints to per-motor throttles. Replace with your own if you
@@ -120,7 +120,7 @@ class TemplateAgent:
     # Why bother:
     #   - Agents that emit setpoints port to PX4/Ardupilot OFFBOARD in an
     #     afternoon. Agents that emit motor throttles need a custom FC.
-    #   - +5 HW-readiness points (see docs/SCORING.md).
+    #   - +5 HW-readiness points (see docs/AGENT_SCORING.md).
     #
     # Example (uncomment + adapt):
     #

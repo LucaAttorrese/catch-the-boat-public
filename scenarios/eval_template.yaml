@@ -52,6 +52,6 @@ landing:
   # Wing-perpendicular condition. The drone's body-x (fuselage) must be aligned
   # with the boat's heading axis (modulo pi) within this tolerance for a
   # platform contact to count as LANDED. Otherwise the contact = CRASHED.
-  yaw_alignment_tol_deg: 25.0
+  yaw_alignment_tol_deg: 30.0
 
 seed: 1234

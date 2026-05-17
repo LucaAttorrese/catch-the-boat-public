@@ -14,7 +14,7 @@ PD-attitude + rate-loop yaw + inverse-mixer pipeline that converts
 high-level setpoints (thrust, roll, pitch, yaw_rate) into per-motor
 throttles. Gains are derived analytically from the drone spec's mass
 and inertia for a target closed-loop natural frequency, so the same
-controller works on both quadcopter.yaml and vtol.yaml without retuning.
+controller works on any airframe whose YAML provides those fields.
 
 Use it like this:
 
@@ -56,7 +56,7 @@ class DefaultAttitudeController:
 
     Derives all gains from the spec's inertia tensor for a target
     closed-loop natural frequency and damping ratio. The same parameters
-    work for quad and VTOL because Kp / Kd scale with I.
+    work regardless of airframe scale because Kp / Kd scale with I.
     """
 
     def __init__(

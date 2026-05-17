@@ -30,7 +30,7 @@ from evaluation.evaluate import run_episode_safe  # noqa: E402
 
 
 SCENARIO = REPO_ROOT / "scenarios" / "easy.yaml"
-SPEC = REPO_ROOT / "drones" / "quadcopter.yaml"
+SPEC = REPO_ROOT / "drones" / "vtol.yaml"
 
 
 def _make_env():

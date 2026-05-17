@@ -30,5 +30,5 @@ camera:
   occlusion_probability: 0.05
   occlusion_duration: 1.0
 landing:
-  yaw_alignment_tol_deg: 15.0
+  yaw_alignment_tol_deg: 20.0
 seed: 42

@@ -47,7 +47,7 @@ def test_zero_outcomes(outcome):
 
 def test_perfect_landing_max_score():
     """err=0, instant landing, full battery, soft descent, perfect estimate
-    -> 100*1*1*1 + 10 + 20 = 130."""
+    -> 50*1*1*1 + 5 + 15 = 70."""
     score, breakdown = compute_score(
         outcome="LANDED",
         landing_position_error=0.0,
@@ -57,13 +57,13 @@ def test_perfect_landing_max_score():
         max_descent_velocity=0.2,
         estimation_rmse=0.0,
     )
-    assert math.isclose(score, 130.0, rel_tol=1e-9)
+    assert math.isclose(score, 70.0, rel_tol=1e-9)
     comps = breakdown["components"]
     assert math.isclose(comps["precision_factor"], 1.0)
     assert math.isclose(comps["time_factor"], 1.0)
     assert math.isclose(comps["battery_factor"], 1.0)
-    assert comps["soft_landing_bonus"] == 10.0
-    assert math.isclose(comps["estimation_bonus"], 20.0)
+    assert comps["soft_landing_bonus"] == 5.0
+    assert math.isclose(comps["estimation_bonus"], 15.0)
 
 
 def test_landing_with_err_caps_precision():
@@ -76,8 +76,8 @@ def test_landing_with_err_caps_precision():
         battery_remaining=1.0,
         max_descent_velocity=0.5,
     )
-    # base * 0 * ... = 0 plus soft bonus 10
-    assert math.isclose(score, 10.0, rel_tol=1e-9)
+    # base * 0 * ... = 0 plus soft bonus 5
+    assert math.isclose(score, 5.0, rel_tol=1e-9)
 
 
 def test_time_factor_floor_at_half():
@@ -91,8 +91,8 @@ def test_time_factor_floor_at_half():
         max_descent_velocity=0.2,
         estimation_rmse=None,
     )
-    # time_factor floored at 0.5; battery_factor=1; precision=1; soft=10
-    expected = 100.0 * 1.0 * 0.5 * 1.0 + 10.0
+    # time_factor floored at 0.5; battery_factor=1; precision=1; soft=5
+    expected = 50.0 * 1.0 * 0.5 * 1.0 + 5.0
     assert math.isclose(score, expected)
     assert math.isclose(breakdown["components"]["time_factor"], 0.5)
 
@@ -106,19 +106,19 @@ def test_battery_factor_floor():
         battery_remaining=0.05,
         max_descent_velocity=2.0,  # not soft; no soft bonus
     )
-    # base=100, precision=1, time=1, battery floored at 0.3
-    expected = 100.0 * 1.0 * 1.0 * 0.3
+    # base=50, precision=1, time=1, battery floored at 0.3
+    expected = 50.0 * 1.0 * 1.0 * 0.3
     assert math.isclose(score, expected)
     assert breakdown["components"]["soft_landing_bonus"] == 0.0
 
 
 def test_estimation_bonus_endpoints():
     assert compute_estimation_bonus(None) == 0.0
-    assert compute_estimation_bonus(0.0) == 20.0
+    assert compute_estimation_bonus(0.0) == 15.0
     assert compute_estimation_bonus(2.0) == 0.0
     assert compute_estimation_bonus(5.0) == 0.0
     # Linear in between
-    assert math.isclose(compute_estimation_bonus(1.0), 10.0)
+    assert math.isclose(compute_estimation_bonus(1.0), 7.5)
 
 
 def test_estimation_rmse_basic():

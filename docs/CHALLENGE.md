@@ -15,26 +15,25 @@ besides. Painted on the platform is a single ArUco marker
 way of localizing the platform — no GPS handoff from the ship, no
 radar, no lidar.
 
-For the drone, you choose between two airframes that ship as YAML specs
-in `drones/`:
+The drone is a single airframe shipped as a YAML spec:
 
-* **`quadcopter.yaml`** — 1.5 kg X-config quadrotor, full yaw authority.
-  The simpler choice if your focus is perception/estimation.
-* **`vtol.yaml`** — 10 kg heavy multirotor with a 1.7 m wingspan and
-  asymmetric inertia. Yaw authority is **30× weaker** than the quad
-  (long fuselage = high `Izz`; small `k_Q / k_T` ratio). Always
-  operated as a multirotor — no forward-flight transition required.
+* **`drones/vtol.yaml`** — 10 kg heavy multirotor with a 1.7 m
+  wingspan, asymmetric inertia (`Ixx=2.54`, `Iyy=3.47`, `Izz=5.74`),
+  and weak yaw authority (small `k_Q / k_T` ratio). Always operated as
+  a multirotor — no forward-flight transition, no tilt servos.
+  Reaching steady-state yaw rate takes ~2 s, so you cannot use yaw to
+  bail out of a late misalignment.
 
 **Your job is twofold:**
 
-1. **Build a `DroneSimulator`** for the drone you chose. The env owns
+1. **Build a `DroneSimulator`** for this airframe. The env owns
    boat / wind / camera / contact / scoring; you own the rigid-body
    physics that turns motor commands into state evolution.
 2. **Build an `Agent`** that lands the drone on the platform.
 
 Both are graded — see [`SIM_SCORING.md`](SIM_SCORING.md) for the sim
-rubric, [`SCORING.md`](SCORING.md) for the agent rubric. Total score is
-the sum.
+rubric, [`AGENT_SCORING.md`](AGENT_SCORING.md) for the agent rubric.
+Total score is the sum.
 
 ## Landing condition
 
@@ -44,15 +43,15 @@ A platform contact counts as **LANDED** iff all four hold:
 | --- | --- |
 | `descent_velocity` at touchdown | `< 3.0 m/s` |
 | Drone center within platform footprint | `\|xy_err\| < 0.5 m` per axis |
-| **Wings perpendicular to boat length** (`yaw_drone − yaw_boat` mod π) | `< 25°` (scenario-dependent) |
+| Fuselage axis aligned with boat heading (mod π) | `< 30°` (scenario-dependent) |
 | Platform contact (not hull, not water) | `getClosestPoints` |
 
-The third one is new this year: the drone's **fuselage axis** must be
-aligned with the boat's heading (modulo π). Land sideways and you
-crash. The tolerance is set per scenario in `landing.yaw_alignment_tol_deg`
-(easy: 30°, medium: 20°, hard: 15°).
+Fuselage alignment is the trickiest of the four: the drone's body x-axis
+(forward) must be aligned with the boat's heading axis modulo π. Land
+sideways and you crash. The tolerance is set per scenario in
+`landing.yaw_alignment_tol_deg` (easy: 35°, medium: 25°, hard: 20°).
 
-The VTOL spec has weak yaw authority by design — start aligning yaw
+The VTOL has weak yaw authority by design — start aligning yaw
 **early** in the approach phase or you won't make the tolerance.
 
 ## Architecture overview
@@ -195,8 +194,8 @@ Three files (or a directory containing them):
    expose `make_drone_sim(spec_path)` or a `DroneSim` class.
 2. **`agent.py`** — your `Agent`. Must expose `make_agent(drone_spec)`
    (preferred) or an `Agent` class.
-3. **`submission.yaml`** — declares which drone you chose, file paths,
-   and which Tier 1 simulator features you implemented. Template at
+3. **`submission.yaml`** — file paths and which Tier 1 simulator
+   features you implemented. Template at
    [`evaluation/submission.yaml.template`](../evaluation/submission.yaml.template).
 
 The agent class must implement:
@@ -227,9 +226,9 @@ Three public scenarios ship with this repo (`scenarios/`):
 
 | Scenario | Boat motion       | Wind            | Oscillation | Camera fps | Fog density | Yaw tol |
 | -------- | ----------------- | --------------- | ----------- | ---------- | ----------- | ------- |
-| EASY     | static            | none            | none        | 50 (none)  | 0           | 30°     |
-| MEDIUM   | linear @ 1.5 m/s  | mild (0.3 N)    | mild        | 20         | 0.05        | 20°     |
-| HARD     | curved @ 2.5 m/s  | gusty (0.6 N)   | strong      | 10         | 0.15        | 15°     |
+| EASY     | static            | none            | none        | 50 (none)  | 0           | 35°     |
+| MEDIUM   | linear @ 1.5 m/s  | mild (0.3 N)    | mild        | 20         | 0.05        | 25°     |
+| HARD     | curved @ 2.5 m/s  | gusty (0.6 N)   | strong      | 10         | 0.15        | 20°     |
 
 The real evaluation scenarios (kept private until the event ends) use
 the same schema. They are tuned to be no harder than HARD but to
@@ -247,9 +246,10 @@ parameters that overfit.
 - **Modifying `act()` in your fork** of `agent_template.py`. The four
   pipeline stages (perceive / estimate / decide / control) are how we
   compare submissions; keep them visible.
-- **Hardcoding drone spec parameters** in your `drone_sim.py`. Tier 0.4
-  verifies your sim behaves differently with `quadcopter.yaml` vs
-  `vtol.yaml`. Hardcoded values fail.
+- **Hardcoding drone spec parameters** in your `drone_sim.py`. The
+  simulator must read mass, inertia, motor placement, propeller
+  coefficients, etc. from the spec — values baked into the code fail
+  the Tier 1 tests that read those fields.
 - **Bluffing in `submission.yaml`**. Declaring a Tier 1 feature you
   didn't implement runs the test, fails it, and visibly flags your
   submission. See [`SIM_SCORING.md`](SIM_SCORING.md#anti-bluff).
@@ -269,43 +269,44 @@ parameters that overfit.
   `evaluation/code_audit.py` and gets your submission flagged for
   manual review. Confirmed cheats are **disqualified**.
 
-## Hardware track (optional, +30 pts)
+## Hardware track (optional, +60 pts)
 
 In addition to the agent + sim tracks, you may design and present an
 auxiliary **physical mechanism** that extends the boat-landing system
 beyond what bare flight control can handle (nets, electromagnets,
 gripper claws, retractable feet, magnetic plates, anything else you
 can defend). The HW track is **all rubric, no automation** and is
-worth up to **30 points** on top of the agent + sim totals.
+worth up to **60 points** on top of the agent + sim totals.
 
 Three components:
 
-| Voce | What | Max pts |
+| Item | What | Max pts |
 | --- | --- | --- |
-| **HW.1 Concept pitch** | Video (1–3 min) + supporting materials (slides, Blender/SolidWorks renders, hand-drawn schematics) that explain the scenario you're solving, the mechanism, and why this mechanism vs alternatives | 10 |
-| **HW.2 CAD / BOM / schema** | Engineering drawings, electrical schematic, parts list with real part numbers | 5 |
-| **HW.3 Fork bonus** | A fork of this repo where you've modified env / sim / scoring / scenarios to integrate the mechanism. Demonstrates the mechanism doing useful work in a runnable demo. | 15 |
+| **HW.1 Concept pitch** | Video (1–3 min) + supporting materials (slides, Blender/SolidWorks renders, hand-drawn schematics) that explain the scenario you're solving, the mechanism, and why this mechanism vs alternatives | 20 |
+| **HW.2 CAD / BOM / schema** | Engineering drawings, electrical schematic, parts list with real part numbers | 10 |
+| **HW.3 Working implementation** | A runnable simulation/prototype of the mechanism in any framework — Python, Simulink, Gazebo, ROS, custom — plus a short demo video/screencast showing it operating, plus a 1-page writeup with quantitative results. NO integration into this repo required. | 30 |
 
-The repo encourages you to **fork freely** for the HW track. Modify
-any file you need to (env, sim, scorer, scenarios). Two rules:
+HW.3 explicitly does **not** require forking this repo. Use whatever
+toolchain best demonstrates the mechanism in action — a Simulink model
+of a magnetic gripper, a Python simulation of a net deployment, a
+small Gazebo world for a retractable-feet mechanism, anything that
+shows the mechanism doing useful work and producing measurable
+behavior. The deliverable is the trio: working code + demo evidence +
+short writeup with numbers.
 
-1. The fork must include the commit hash of this repo it diverged
-   from, so we can diff what changed.
-2. The fork must include a `README_FORK.md` explaining what changed,
-   why, and how to launch the demo (one command, please).
-
-HW.3 is scored 0/5/10/15 by a human reviewer based on: integration
-works end-to-end, mechanism influence is visible in the demo, code
-changes are clean and mirror the design rather than hacks.
+HW.3 is scored 0/10/20/30 by a human reviewer based on: implementation
+runs end-to-end without hand-waving, the demo makes the mechanism's
+benefit visible, and the writeup ties the design choices to the
+numbers.
 
 ## Total score
 
 | Track | Max | Who scores |
 | --- | --- | --- |
-| Agent — landing performance | 130 | Automatic ([`SCORING.md`](SCORING.md)) |
-| Agent — HW-readiness bonuses | 15 | Automatic |
+| Agent — landing performance | 70 | Automatic ([`AGENT_SCORING.md`](AGENT_SCORING.md)) |
+| Agent — HW-readiness bonuses | 45 | Automatic |
 | Drone simulator — fidelity | 30 | Automatic ([`SIM_SCORING.md`](SIM_SCORING.md)) |
-| Hardware track | 30 | Human rubric |
+| Hardware track | 60 | Human rubric |
 | **Total** | **205** | |
 
 The agent track and the drone-sim track are **independent**: your sim's
@@ -318,21 +319,20 @@ against the organizer reference sim (see
 12 hours. Two of those go to setup, demos, and meals — so plan on ~10
 hours of build time. Suggested split:
 
-- **1 h**: read this doc + `SIM_SCORING.md` + `SCORING.md` + `API.md`.
+- **1 h**: read this doc + `SIM_SCORING.md` + `AGENT_SCORING.md` + `API.md`.
 - **1 h**: get the baseline agent + baseline sim running on EASY locally.
 - **2 h**: simulator. Add the Tier 1 features that matter most for
   landing fidelity (motor lag, ground effect, aero drag are the high-
   value ones). Each is worth +5; pick what you can defend.
 - **4 h**: perception + estimation + boat-motion estimator. This is
   where the biggest *agent* score gains are.
-- **2 h**: control: wing-perpendicular yaw alignment (especially on
-  VTOL), velocity feed-forward on the boat estimate, descent profile.
+- **2 h**: control: fuselage-axis yaw alignment (the VTOL is sluggish
+  in yaw), velocity feed-forward on the boat estimate, descent profile.
 - **1 h**: run on MEDIUM and HARD; debug failure modes; tune.
 
 If you're attempting the HW track too, redistribute: 1–2 people on
-HW (concept pitch + fork bonus), the rest on agent + sim.
-
-If you find yourself rewriting the env **outside the HW fork**, you've
-gone off-track — for the main agent + sim tracks the env is fixed.
+HW (concept pitch + implementation), the rest on agent + sim. The HW
+track is fully decoupled from the code repo — pick the toolchain that
+fits your mechanism best.
 
 Good luck.

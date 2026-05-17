@@ -2,17 +2,17 @@
 
 This document explains how the **drone simulator** is scored, separately
 from your agent. The agent is judged on landing performance (see
-[`SCORING.md`](SCORING.md), 0–130 points + 0–15 HW-readiness bonuses).
+[`AGENT_SCORING.md`](AGENT_SCORING.md), 0–70 points + 0–45 HW-readiness bonuses).
 The simulator is judged on **physical fidelity** — how seriously you
 modelled the airframe — and is worth up to **30 points** on top of
 your agent score. The optional hardware track (rubric, see
-[`CHALLENGE.md`](CHALLENGE.md)) adds another 30.
+[`CHALLENGE.md`](CHALLENGE.md)) adds another 60.
 
 ```
-total_score = agent_landing_score (0..130)
-            + agent_hw_readiness  (0..15)
+total_score = agent_landing_score (0..70)
+            + agent_hw_readiness  (0..45)
             + simulator_score     (0..30)
-            + hardware_track      (0..30)        # optional, rubric
+            + hardware_track      (0..60)        # optional, rubric
 ```
 
 The agent and simulator tracks are **independent**: a sloppy participant
@@ -26,15 +26,14 @@ against the organizer-owned reference simulator (see
 
 | Tier | Points | What it is | Who scores it |
 | --- | --- | --- | --- |
-| **0 — Gate** | PASS / FAIL | 5 mandatory tests (incl. hidden T0.5). Fail any → simulator score = 0. | Automatic |
+| **0 — Gate** | PASS / FAIL | 4 mandatory tests (incl. hidden T0.5). Fail any → simulator score = 0. | Automatic |
 | **1 — Auto features** | up to **30** (5 × 6) | Six physically-motivated features. Each is verified by an automated test. Declare in `submission.yaml`. | Automatic |
 | **Total sim track** | **30** | | |
 
-> Code-quality rubric and `SIMULATOR.md` write-up were retired in this
-> edition. The track is now 100% automated and the agent score holds
-> the human-judged half of the challenge (HW track + HW-readiness).
-> See also: the reference simulator section below — your sim's score
-> does NOT carry over to the agent score, the two are independent.
+> The track is 100% automated. The human-judged half of the challenge
+> lives in the HW track and the agent's HW-readiness bonuses. Your
+> sim's score does NOT carry over to the agent score; the two are
+> independent.
 
 ## How the sim track interacts with the agent track
 
@@ -85,7 +84,7 @@ it, replace what you want, keep the contract.
 
 ## Tier 0 — Gate (PASS / FAIL)
 
-Five mandatory tests. **If any fails, your simulator score is 0.** No
+Four mandatory tests. **If any fails, your simulator score is 0.** No
 exceptions, no partial credit. These verify the contract is honoured
 and your sim is even fit for evaluation.
 
@@ -117,16 +116,6 @@ Two fresh sims, same spec, same seed, same sequence of motor commands
 must produce final states that match to **|Δpos| < 1e-10 m**. No
 wall-clock dependencies, no unseeded RNGs. (If you want randomness for
 ablation, use a seed parameter in your sim's constructor.)
-
-### T0.4 — Spec-driven physics
-
-The same simulator code, fed `drones/quadcopter.yaml` and then
-`drones/vtol.yaml`, must produce vertical climb velocities at full
-throttle (after 0.5 s) that differ by **more than 30 %**. This catches
-sims that hardcode `mass = 1.5` or `k_T = 7.6e-6`.
-
-If you fail T0.4 you almost certainly forgot a parameter in your YAML
-loader.
 
 ### T0.5 — Variable-dt robustness (hidden category)
 
@@ -161,6 +150,12 @@ sequence or the threshold. Practising against the public default in
 `evaluation/sim_validation/t0_variable_dt.py` puts you in the right
 direction; passing it does not guarantee passing the eval run, but
 failing it locally guarantees failing in eval.
+
+> The IDs jump from T0.3 to T0.5: earlier drafts had a "T0.4
+> spec-driven physics" test that fed the simulator two different drone
+> YAMLs and verified the climb rates differed. With a single shipped
+> airframe (`drones/vtol.yaml`) that test no longer applies; the
+> Tier-1 tests (T1.A, T1.D) already exercise spec-driven values.
 
 ---
 
@@ -218,19 +213,20 @@ Hint: `spec.battery.internal_resistance` and `spec.battery.capacity_Wh`.
 In vacuum, `v_z(t) = -g·t`. Real airframes have body drag — at minimum
 linear (`F = -b·v`), often quadratic (`F = -c·|v|·v`).
 
-**Test**: zero-throttle free fall for 2 seconds. Measure final vertical
+**Test**: zero-throttle free fall for 4 seconds. Measure final vertical
 velocity. Pass criterion:
 
 ```
 |v_z_measured − v_no_drag| / |v_no_drag| > 0.02       # at least 2 % slower
 ```
 
-with `v_no_drag = -g·t = -19.62 m/s`.
+with `v_no_drag = -g·t = -39.24 m/s`.
 
 **Required**: your sim must apply *some* velocity-dependent damping
 force. The test does not verify the exact formula — `aero.drag_linear`
 times body velocity is enough; `aero.drag_quadratic` is icing. The 2 %
-threshold is well above floating-point noise for this duration.
+threshold is well above floating-point noise once the residual
+motor-spin-down impulse has amortised over 4 s.
 
 ### T1.D — Cross-axis inertial coupling
 
@@ -245,15 +241,12 @@ body with asymmetric inertia, its angular velocity *precesses* — even
 with zero applied torque. A sim that just does `I · dω/dt = τ` (drops
 the gyro term) misses this.
 
-**Test**: applies an asymmetric thrust burst on the **VTOL spec**
+**Test**: applies an asymmetric thrust burst on the VTOL spec
 (asymmetric inertia: `Ix=2.54`, `Iy=3.47`, `Izz=5.74`) to imprint a
 multi-axis ω, then commands hover throttle for 1 second. Pass criterion:
 **ω rotates by more than 3°** during the free-precession second.
 
 A sim that drops the cross term keeps ω constant → 0° rotation → fail.
-
-The test always uses VTOL because for symmetric inertia (the quad spec
-has `Ix=Iy=0.0213`) the coupling vanishes by construction.
 
 ### T1.E — Internal sub-stepping
 
@@ -340,7 +333,6 @@ Minimal example:
 
 ```yaml
 team:           "Team Sky"
-chosen_drone:   "vtol"          # quadcopter | vtol
 drone_sim_path: "drone_sim.py"
 agent_path:     "agent.py"
 
@@ -356,12 +348,9 @@ simulator_features:
 notes: |
   We implemented Cheng-Frantz ground effect with a=0.30 and a quadratic
   body drag model fitted to wind-tunnel coefficients from [reference].
-  Skipped battery sag and sub-stepping due to time budget; documented
-  rationale in SIMULATOR.md.
+  Skipped battery sag and sub-stepping due to time budget.
 ```
 
-* `chosen_drone` — which spec your **agent** runs against. The simulator
-  itself must work for **both** specs (T0.4 verifies that).
 * `simulator_features.tier_1.<feature>: true` — request that the
   feature's automated test be run for you. **Set `false` (or omit) if
   you didn't implement the feature.**
@@ -394,7 +383,7 @@ run the same scorer the organizers will use:
 ```bash
 python evaluation/sim_scorer.py \
     --drone-sim    path/to/your/drone_sim.py \
-    --drone        quadcopter \
+    --drone        vtol \
     --submission   path/to/your/submission.yaml
 ```
 
@@ -425,7 +414,7 @@ how the organizers smoke-test the baseline.
 The public baseline at `agents/drone_sim_baseline.py` is what ships
 with the repo. It implements:
 
-* Tier 0: all five gate tests pass, including T0.5 (the baseline does
+* Tier 0: all four gate tests pass, including T0.5 (the baseline does
   light internal sub-stepping at a 5 ms cap so plain-Euler error stays
   bounded for `dt` up to the env's 4 ms cadence and beyond).
 * T1.A motor lag (first-order, `τ = spec.motor.time_constant`).
@@ -453,27 +442,6 @@ achievable in the 12-hour window.
 `evaluation/sim_scorer.py` matches its AST and caps the sim-track
 score at 0 if you do. Fork it, rename it, modify any one feature, and
 you're past the cap.
-
----
-
-## What we did NOT do (and why)
-
-A draft of this rubric included a "validation dataset" bonus — your
-sim's trajectories compared by RMSE against a reference set of
-ground-truth trajectories generated by the organizers' high-fidelity
-sim, worth +10 bonus points.
-
-**It was dropped.** Reasons: building a fair reference dataset that
-discriminates well across submission styles is hard, and the six
-auto-tests already cover the physics that matters for landing fidelity
-in this challenge. If we add it back for a future edition, it'll be
-announced ahead of the event.
-
-A second draft included a tier-2 feature for VTOL hover↔cruise
-**transition** modelling. **Also dropped.** The `vtol.yaml` spec is
-treated as a heavy multirotor with weak yaw — no forward-flight
-modelling required, no tilt servos. The wings exist as visual mass
-and contribute to lateral drag, that's it.
 
 ---
 

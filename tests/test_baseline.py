@@ -41,7 +41,7 @@ def test_act_returns_motor_throttles_in_unit_interval():
     agent = BaselineAgent()
     obs = _synthetic_obs()
     action = agent.act(obs)
-    # Default spec is the X-quadcopter (4 motors). Values are throttles in [0, 1].
+    # Default spec is the VTOL (4 motors). Values are throttles in [0, 1].
     assert action.shape == (agent.spec.num_motors,)
     assert action.dtype == np.float64
     assert np.all(action >= 0.0) and np.all(action <= 1.0)

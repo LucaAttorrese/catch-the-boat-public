@@ -3,7 +3,7 @@
 Usage:
     python evaluation/sim_scorer.py \
         --drone-sim agents/drone_sim_baseline.py \
-        --drone quadcopter \
+        --drone vtol \
         --submission evaluation/submission_baseline.yaml
 
 The scorer:
@@ -14,16 +14,12 @@ The scorer:
     3. Runs the test for each declared Tier 1 feature. Each pass = 5
        points. A *declared* feature whose test fails earns 0 AND is
        flagged in the breakdown ("declared but not detected").
-    4. Tier 2 (rubric) and the validation-dataset bonus are NOT scored
-       here — those are handled by judge review and a separate
-       reference-trajectory comparison respectively.
 
 Prints a JSON breakdown to stdout. Exit code 0 if Tier 0 passed,
 1 otherwise.
 
 Schema of submission.yaml:
     team:                "Team X"
-    chosen_drone:        "quadcopter" | "vtol"     # which spec the agent uses
     drone_sim_path:      relative path to drone-sim .py
     agent_path:          relative path to agent .py
     simulator_features:
@@ -33,6 +29,7 @@ Schema of submission.yaml:
         aero_drag:        bool
         cross_coupling:   bool
         substepping:      bool
+        ground_effect:    bool
 """
 
 from __future__ import annotations
@@ -202,8 +199,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--drone",
-        required=True,
-        help="Drone spec name (e.g. 'quadcopter', 'vtol') or path to YAML.",
+        default="vtol",
+        help="Drone spec name (e.g. 'vtol') or path to YAML. "
+        "The shipped spec is drones/vtol.yaml.",
     )
     parser.add_argument(
         "--submission",

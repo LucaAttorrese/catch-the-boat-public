@@ -45,8 +45,7 @@ What you see in flight:
 ### 3. Aerodynamic drag
 
 Body-axis linear + quadratic drag, with axis-dependent coefficients.
-The VTOL has notably stronger lateral drag than the quadcopter (long
-wing chord).
+The VTOL has notably strong lateral drag (long wing chord).
 
 What you see in flight:
 - Horizontal velocity does not coast forever — there is real damping.

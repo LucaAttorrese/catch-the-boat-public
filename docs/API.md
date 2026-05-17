@@ -18,14 +18,14 @@ This document covers the API surface for all three.
 from boat_landing.env import BoatLandingEnv
 from agents.drone_sim_baseline import BaselineDroneSimulator
 
-sim = BaselineDroneSimulator("drones/quadcopter.yaml")
+sim = BaselineDroneSimulator("drones/vtol.yaml")
 env = BoatLandingEnv("scenarios/easy.yaml", drone_sim=sim, gui=False)
 ```
 
 | Argument        | Type                | Default | Notes                                          |
 | --------------- | ------------------- | ------- | ---------------------------------------------- |
 | `scenario_path` | `str / Path`        | —       | YAML file under `scenarios/` (or absolute).    |
-| `drone_sim`     | `DroneSimulator`    | `None`  | If `None`, a `BaselineDroneSimulator(quadcopter.yaml)` is constructed automatically (legacy convenience). |
+| `drone_sim`     | `DroneSimulator`    | `None`  | If `None`, a `BaselineDroneSimulator(vtol.yaml)` is constructed automatically (legacy convenience). |
 | `gui`           | `bool`              | `False` | Open a PyBullet GUI window.                    |
 | `record`        | `bool`              | `False` | Reserved; visualizer handles demo capture.     |
 
@@ -52,8 +52,8 @@ follows the `gymnasium` 5-tuple convention. `reward` is always `0.0` —
 agents are scored externally by `evaluation/scorer.py`.
 
 `action` must be `np.ndarray` of shape **`(env.drone_spec.num_motors,)`**
-(4 for both shipped specs), dtype convertible to `float64`, with values
-in `[0, 1]`. Out-of-range values are clipped silently.
+(4 for the shipped VTOL spec), dtype convertible to `float64`, with
+values in `[0, 1]`. Out-of-range values are clipped silently.
 
 Each entry is the **throttle command for one motor**. The mapping from
 throttle to commanded RPM is your simulator's responsibility (the
@@ -72,7 +72,7 @@ action = ctrl(obs["state"],
 ```
 
 The controller derives PD gains from `spec.inertia` so it works for
-both the quadcopter and VTOL specs without retuning.
+any airframe whose YAML provides those fields, without retuning.
 
 Internally the env runs **5 physics substeps per agent step** at
 `PHYSICS_DT = 1/250 s`. Your `drone_sim.step` is called once per
@@ -149,13 +149,13 @@ or your sim is disqualifying.**
 
 | Outcome           | Trigger                                                   |
 | ----------------- | --------------------------------------------------------- |
-| `LANDED`          | All four hold: drone contacts the platform, drone center within ±0.5 m of platform xy, descent velocity < `CRASH_VERT_VEL` (3 m/s), and **fuselage axis aligned with boat heading mod π** within `landing.yaw_alignment_tol_deg` (default 25°). |
+| `LANDED`          | All four hold: drone contacts the platform, drone center within ±0.5 m of platform xy, descent velocity < `CRASH_VERT_VEL` (3 m/s), and **fuselage axis aligned with boat heading mod π** within `landing.yaw_alignment_tol_deg` (default 30°). |
 | `CRASHED`         | Drone hits the hull (off-platform), or the water (`z < 0`), or the platform with descent ≥ 3 m/s, or the platform with yaw misalignment > tolerance. |
 | `TIMEOUT`         | Episode wall time ≥ `duration_max`.                       |
 | `OUT_OF_BATTERY`  | `battery <= 0`.                                           |
 
-The wing-perpendicular condition (third bullet of `LANDED`) is the
-new one this year. Yaw planning is part of the agent's job.
+Fuselage alignment (third bullet of `LANDED`) is the trickiest of the
+four — yaw planning is part of the agent's job.
 
 ### Camera intrinsics
 
@@ -244,7 +244,7 @@ The typed view of `drones/*.yaml`:
 
 ```python
 spec.name                                   # str
-spec.type                                   # "quadrotor" | "heavy_multirotor"
+spec.type                                   # "heavy_multirotor"
 spec.mass                                   # float [kg]
 spec.inertia                                # (3, 3) [kg·m²], diagonal in our shipped specs
 spec.num_motors                             # int
@@ -272,7 +272,7 @@ Load with:
 
 ```python
 from boat_landing.drone_interface import load_drone_spec
-spec = load_drone_spec("drones/quadcopter.yaml")
+spec = load_drone_spec("drones/vtol.yaml")
 ```
 
 ### Simulator dynamic-loading contract
@@ -326,7 +326,7 @@ Recommended: `"velocity"` (`(3,)` ndarray).
 python evaluation/evaluate.py \
     --agent      teams/myteam/agent.py        \    # default: agents/agent_baseline.py
     --drone-sim  teams/myteam/drone_sim.py    \    # default: agents/drone_sim_baseline.py
-    --drone      quadcopter                   \    # default: quadcopter; "vtol" or path to .yaml
+    --drone      vtol                         \    # default: vtol; or path to .yaml
     --scenario   easy                         \    # required
     --headless --seed 42
 ```
@@ -339,7 +339,7 @@ Prints the agent score JSON to stdout (with the score breakdown). See
 ```bash
 python evaluation/sim_scorer.py \
     --drone-sim   teams/myteam/drone_sim.py        \
-    --drone       quadcopter                       \    # or vtol
+    --drone       vtol                             \
     --submission  teams/myteam/submission.yaml     \
     --output      score.json
 ```

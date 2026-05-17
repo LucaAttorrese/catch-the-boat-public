@@ -4,8 +4,8 @@
 # This file is INPUT to your drone simulator. Your DroneSimulator reads it
 # at construction time and uses every field below to drive its physics.
 # DO NOT MODIFY this file — at evaluation time the organizers run your
-# simulator against the unmodified copy. If you want a simpler airframe to
-# develop against, use drones/quadcopter.yaml instead.
+# simulator against the unmodified copy. This is the ONLY airframe in
+# this edition of the challenge.
 #
 # Operating regime: HOVER / MULTIROTOR ONLY.
 # Although the airframe has wings (large fuselage + 1.7 m wingspan), the
@@ -14,12 +14,12 @@
 # whose four lift rotors point vertically at all times. The wings exist
 # only as visual mass + drag — they are why drag_linear[y] is high.
 #
-# Why this airframe is harder than the small quad:
-#   * Yaw authority is roughly 30x weaker (high Izz, small k_Q-to-k_T
-#     ratio). Reaching steady-state yaw rate takes ~2 s — you cannot
-#     use yaw to bail out of a late misalignment.
-#   * To land "wings perpendicular to boat heading" you have to commit
-#     to a yaw setpoint EARLY in the approach.
+# Operating quirks of this airframe:
+#   * Yaw authority is weak (high Izz, small k_Q-to-k_T ratio). Reaching
+#     steady-state yaw rate takes ~2 s — you cannot use yaw to bail out
+#     of a late misalignment.
+#   * To land "fuselage axis aligned with boat heading" you have to
+#     commit to a yaw setpoint EARLY in the approach.
 #   * Inertias are asymmetric: pitch is sluggish (long fuselage), roll is
 #     much snappier than pitch.
 #
