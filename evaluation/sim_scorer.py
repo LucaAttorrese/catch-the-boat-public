@@ -244,10 +244,14 @@ def main() -> int:
         "drone_spec": str(drone_spec_path),
         "submission": str(submission_path.resolve()),
     }
-    payload = json.dumps(breakdown, indent=2, default=_json_default)
+    # allow_nan=False so a Tier-1 test that returned NaN in `metrics`
+    # fails loud here instead of emitting non-standard JSON tokens.
+    payload = json.dumps(breakdown, indent=2, default=_json_default, allow_nan=False)
     print(payload)
     if args.output:
-        Path(args.output).write_text(payload, encoding="utf-8")
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(payload, encoding="utf-8")
     return 0 if breakdown.get("tier_0_passed") else 1
 
 

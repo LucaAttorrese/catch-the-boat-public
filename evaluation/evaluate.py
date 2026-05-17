@@ -474,7 +474,7 @@ def _error_result(env: BoatLandingEnv, outcome: str, exc: BaseException) -> dict
         estimation_rmse=None,
         hw_readiness=None,
     )
-    return {
+    result = {
         "score": score,
         "outcome": outcome,
         "scenario_id": env.scenario.get("scenario_id", "unknown"),
@@ -490,6 +490,12 @@ def _error_result(env: BoatLandingEnv, outcome: str, exc: BaseException) -> dict
         "error_message": str(exc)[:240],
         "breakdown": breakdown,
     }
+    # Preserve schema parity with LANDED/CRASHED rows: emit a null
+    # `recovery` block whenever the scenario asks for one, so a
+    # leaderboard groupby on scenario can rely on the field's presence.
+    if (env.scenario.get("recovery_check") or {}).get("enabled"):
+        result["recovery"] = None
+    return result
 
 
 def run_episode_safe(
@@ -610,16 +616,27 @@ def main() -> int:
             )
             # Emit a placeholder JSON on stdout too, so the batch harness
             # that parses one JSON per run doesn't choke on an empty
-            # stream. Score 0, outcome ERROR.
+            # stream. Includes every field a LANDED/CRASHED row has,
+            # populated with None — same schema, just empty payload.
             print(json.dumps({
                 "score": 0.0,
                 "outcome": "ERROR",
+                "scenario_id": scenario_path.stem,
+                "time_to_terminate_s": 0.0,
+                "battery_remaining": None,
+                "landing_position_error_m": None,
+                "max_descent_velocity_mps": None,
+                "estimation_rmse_m": None,
+                "agent_mode": None,
+                "latency_p95_ms": None,
+                "latency_mean_ms": None,
+                "breakdown": {"outcome": "ERROR", "components": {}},
                 "error_type": "MissingReferenceSim",
                 "error_message": str(exc)[:240],
-                "scenario_id": resolve_scenario(args.scenario).stem,
                 "agent": str(Path(args.agent).resolve()),
                 "drone_sim": "boat_landing.reference_sim (unavailable)",
-                "breakdown": {"outcome": "ERROR", "components": {}},
+                "drone_spec": str(drone_spec_path),
+                "scenario_path": str(scenario_path),
             }, indent=2, allow_nan=False))
             return 2
         drone_sim = _make_ref_sim(str(drone_spec_path))
@@ -672,7 +689,9 @@ def main() -> int:
     payload = json.dumps(result, indent=2, default=_json_default, allow_nan=False)
     print(payload)
     if args.output:
-        Path(args.output).write_text(payload, encoding="utf-8")
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(payload, encoding="utf-8")
     return 0
 
 

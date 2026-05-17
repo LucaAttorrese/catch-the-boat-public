@@ -642,6 +642,20 @@ class BoatLandingEnv:
             if (self._t - self._last_camera_render_t) < (min_dt - 1e-6):
                 render_new = False
 
+        # Stochastic occlusion roll — fires at env step rate (50 Hz), NOT
+        # at camera render rate. Putting this inside `if render_new` made
+        # the effective per-second rate scale with fps: at fps=10 (hard,
+        # private_a, private_b) the roll only fired 10 times/s, so
+        # `prob * DT` per call gave 5× fewer events than the YAML
+        # documented. Roll runs unconditionally; the boolean it sets
+        # forces every cached frame to be occluded until it expires.
+        if self._occlusion_t_remaining <= 0:
+            prob = float(cam_cfg.get("occlusion_probability", 0.0))
+            if prob > 0 and self.rng.random() < prob * self.DT:
+                self._occlusion_t_remaining = float(
+                    cam_cfg.get("occlusion_duration", 1.0)
+                )
+
         if render_new:
             img = self._render_camera(state.position, state.quaternion)
             img = apply_noise(img, float(cam_cfg.get("noise_level", 0.0)), self.rng)
@@ -658,15 +672,6 @@ class BoatLandingEnv:
                 # camera-to-marker line-of-sight distance.
                 altitude = max(state.position[2] - (self.BOAT_HEIGHT + self.PLATFORM_HEIGHT), 0.0)
                 img = apply_fog(img, fog_density, altitude)
-            # Stochastic occlusion: trigger a multi-frame blackout. Once
-            # triggered, all subsequent renders are occluded until the
-            # countdown reaches zero (env.step decrements it).
-            if self._occlusion_t_remaining <= 0:
-                prob = float(cam_cfg.get("occlusion_probability", 0.0))
-                if prob > 0 and self.rng.random() < prob * self.DT:
-                    self._occlusion_t_remaining = float(
-                        cam_cfg.get("occlusion_duration", 1.0)
-                    )
             # Deterministic scheduled blackout takes effect alongside the
             # stochastic one — either path forces the frame to be occluded.
             scheduled = (
@@ -677,7 +682,18 @@ class BoatLandingEnv:
             self._cached_camera = img
             self._last_camera_render_t = self._t
         else:
-            img = self._cached_camera
+            # Even on a cached frame the stochastic / scheduled occlusion
+            # may need to be applied (we want the participant to see a
+            # blacked-out frame as soon as the event fires, not only on
+            # the next render). Apply on the cached image.
+            scheduled = (
+                self._scheduled_occlusion is not None
+                and self._scheduled_occlusion[0] <= self._t < self._scheduled_occlusion[1]
+            )
+            if scheduled or self._occlusion_t_remaining > 0:
+                img = apply_occlusion(self._cached_camera, True)
+            else:
+                img = self._cached_camera
 
         rpy = p.getEulerFromQuaternion(state.quaternion.tolist())
         ang_vel_world = self._rotate_body_to_world(

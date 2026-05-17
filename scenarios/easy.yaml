@@ -8,7 +8,7 @@ drone_start:
   attitude: [0.0, 0.0, 0.0]
 boat:
   trajectory_type: "static"
-  start_position: [0.0, 0.0, 0.15]
+  start_position: [0.0, 0.0, 0.20]
   speed: 0.0
   heading_initial: 0.0
   oscillation:

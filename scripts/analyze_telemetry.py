@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """
-Analyze and visualize drone telemetry (attitude and position) from a JSON log.
-Used by hackathon organizers to judge the quality and safety of landings.
+Analyze and visualize drone telemetry (attitude and position) from a JSON log
+produced by `evaluation/evaluate.py --save-traj`. Use it to plot the attitude
+trace, check max tilt, and assess touchdown softness.
 """
 
 import json
 import argparse
+import os
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+# Pick a backend BEFORE pyplot import. On a host without $DISPLAY (CI, the
+# eval container) the default Tk backend hangs or errors; Agg is the safe
+# headless choice. Respect an explicit MPLBACKEND if the user set one.
+import matplotlib
+if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY"):
+    matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze drone telemetry log.")

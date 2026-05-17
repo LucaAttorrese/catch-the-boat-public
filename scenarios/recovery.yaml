@@ -23,7 +23,7 @@ drone_start:
 
 boat:
   trajectory_type: "linear"
-  start_position: [0.0, 0.0, 0.15]
+  start_position: [0.0, 0.0, 0.20]
   speed: 1.2
   heading_initial: 0.0
   oscillation:

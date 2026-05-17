@@ -40,6 +40,9 @@ runs/
 results/
 *.mp4
 *.gif
+# Debug PNG dumps written to repo root by scripts/debug_*.py
+first_frame.png
+render_alt_*.png
 
 # Generated assets (regenerable via scripts/generate_aruco.py)
 boat_landing/assets/aruco/*.png
