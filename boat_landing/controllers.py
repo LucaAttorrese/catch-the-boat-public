@@ -94,6 +94,32 @@ class DefaultAttitudeController:
         self._omega_max = float(spec.motor.omega_max)
         self._T_max_per_motor = self._k_T * self._omega_max ** 2
 
+        # Pre-extract per-motor geometry and inertia matrix for the
+        # cross-coupling feedforward. The body's equation of motion is
+        #   I·α = τ − ω × (I·ω) − ω × L_rotors
+        # The PD law produces τ_pd assuming decoupled axes (I·α = τ_pd).
+        # To make that assumption hold under significant cross-coupling
+        # we add BOTH cancellation terms to the commanded torque:
+        #   τ_commanded = τ_pd + ω × (I·ω) + ω × L_rotors
+        # - ω × (I·ω) is the Euler / inertial cross-coupling. Significant
+        #   whenever I is asymmetric (vtol: Ixx=2.54, Iyy=3.47, Izz=5.74).
+        # - ω × L_rotors is the rotor-gyroscopic precession. At hover the
+        #   opposite-spin layout makes L_rotors ≈ 0, so this term mostly
+        #   matters during yaw transients. Both terms together cover the
+        #   full Newton-Euler coupling the sim integrates.
+        self._inertia = spec.inertia.copy()
+        self._motor_axes = np.stack([m.thrust_axis for m in spec.motors])  # (N, 3)
+        self._motor_spins = np.array(
+            [m.spin for m in spec.motors], dtype=np.float64
+        )
+        self._rotor_inertia = float(spec.motor.rotor_inertia)
+        # Fallback motor speed used when state lacks motor_omegas (legacy
+        # dict callers without the field). Hover RPM is close enough for
+        # the gyro term whose body-axis components are anyway ~0 at hover.
+        self._hover_omega_approx = float(
+            np.sqrt(max(spec.hover_thrust_per_motor, 0.0) / max(self._k_T, 1e-12))
+        )
+
     # ------------------------------------------------------------------ public
     def __call__(
         self,
@@ -111,7 +137,7 @@ class DefaultAttitudeController:
                              (~1.5 rad/s by default).
         thrust_norm:         in [-1, +1]; 0 = hover (mg), +1 = 150% hover.
         """
-        rpy, omega_body = self._extract_attitude(state)
+        rpy, omega_body, motor_omegas = self._extract_state(state)
 
         # Target attitudes in radians.
         roll_t = float(np.clip(roll_des, -1.0, 1.0)) * self.max_tilt
@@ -122,6 +148,29 @@ class DefaultAttitudeController:
         tau_x = self.kp_roll * (roll_t - rpy[0]) - self.kd_roll * omega_body[0]
         tau_y = self.kp_pitch * (pitch_t - rpy[1]) - self.kd_pitch * omega_body[1]
         tau_z = self.kp_yaw_rate * (yaw_rate_t - omega_body[2])
+
+        # Cross-coupling feedforward. Add the Euler term ω×(I·ω) and the
+        # rotor-gyro term ω×L_rotors to the commanded torque so the body
+        # actually rotates at the rate the PD asked for. Without these,
+        # asymmetric inertia (Ixx=2.54, Iyy=3.47, Izz=5.74) couples roll
+        # into yaw and vice versa during fast manoeuvres — the chief
+        # cause of cascade-controller instability when commanding
+        # diagonal pos_err.
+        I_omega = self._inertia @ omega_body
+        tau_euler = np.cross(omega_body, I_omega)
+        tau_x += tau_euler[0]
+        tau_y += tau_euler[1]
+        tau_z += tau_euler[2]
+        if self._rotor_inertia > 1e-12:
+            L_rotors = (
+                self._rotor_inertia
+                * (self._motor_spins * motor_omegas)[:, None]
+                * self._motor_axes
+            ).sum(axis=0)
+            tau_gyro = np.cross(omega_body, L_rotors)
+            tau_x += tau_gyro[0]
+            tau_y += tau_gyro[1]
+            tau_z += tau_gyro[2]
 
         # Body-z thrust target. Hover offset + commanded delta. Note that
         # this is BODY-frame thrust along the dominant motor axis (+z),
@@ -166,22 +215,35 @@ class DefaultAttitudeController:
             M[3, i] = moment[2]
         return M
 
-    @staticmethod
-    def _extract_attitude(state):
-        """Return (rpy_world, angular_velocity_body) regardless of whether
-        the caller passed a dict (env obs) or a DroneState."""
+    def _extract_state(self, state):
+        """Return (rpy_world, angular_velocity_body, motor_omegas) regardless
+        of whether the caller passed a dict (env obs) or a DroneState.
+
+        motor_omegas falls back to the hover estimate if the dict path
+        doesn't include it — keeps the controller working for legacy
+        callers, just without the gyro feedforward's full accuracy.
+        """
+        n_motors = self.spec.num_motors
         if isinstance(state, DroneState):
             quat = state.quaternion
             rpy = _quat_to_rpy(quat)
-            # angular_velocity_body is body frame already.
-            return rpy, state.angular_velocity_body
+            motor_omegas = np.asarray(state.motor_omegas, dtype=np.float64).reshape(-1)
+            if motor_omegas.size != n_motors:
+                motor_omegas = np.full(n_motors, self._hover_omega_approx)
+            return rpy, np.asarray(state.angular_velocity_body, dtype=np.float64), motor_omegas
         # Dict path (env obs["state"]).
         rpy = np.asarray(state["attitude"], dtype=np.float64).reshape(3)
         ang_world = np.asarray(state["angular_velocity"], dtype=np.float64).reshape(3)
-        # Convert world ω to body ω.
         R = _rpy_to_matrix(rpy)
         omega_body = R.T @ ang_world
-        return rpy, omega_body
+        omegas_raw = state.get("motor_omegas")
+        if omegas_raw is not None:
+            motor_omegas = np.asarray(omegas_raw, dtype=np.float64).reshape(-1)
+            if motor_omegas.size != n_motors:
+                motor_omegas = np.full(n_motors, self._hover_omega_approx)
+        else:
+            motor_omegas = np.full(n_motors, self._hover_omega_approx)
+        return rpy, omega_body, motor_omegas
 
 
 # ---------------------------------------------------------------------------

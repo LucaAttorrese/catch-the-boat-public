@@ -94,6 +94,7 @@ obs = {
         "velocity":         np.ndarray,  # (3,) world frame, m/s
         "attitude":         np.ndarray,  # (3,) roll, pitch, yaw, rad
         "angular_velocity": np.ndarray,  # (3,) world frame, rad/s
+        "motor_omegas":     np.ndarray,  # (num_motors,) rad/s — ESC telemetry
     },
     "battery": float,
     "time":    float,
@@ -120,6 +121,11 @@ Notes:
   `R_world_body = Rz(yaw) @ Ry(pitch) @ Rx(roll)`.
 - `angular_velocity` is in **world frame** (PyBullet default). Convert
   to body frame via `R_world_body.T @ omega_world` if you need it.
+- `motor_omegas` is the per-motor angular velocity (rad/s), matching what
+  modern ESCs report back over a telemetry pin. Useful for state
+  estimation, gyroscopic-precession feedforward in a custom flight
+  controller, and battery / current-draw modelling. `DefaultAttitudeController`
+  reads this field automatically when present.
 - `battery` decreases with time; faster when angular velocity is high.
 
 ### Info contract (evaluation only)

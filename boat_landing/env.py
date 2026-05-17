@@ -706,6 +706,12 @@ class BoatLandingEnv:
                 "velocity": state.velocity.copy(),
                 "attitude": np.asarray(rpy, dtype=np.float64),
                 "angular_velocity": ang_vel_world,
+                # Per-motor angular velocity (rad/s). Modern ESCs report
+                # this back over a telemetry pin; expose it so attitude
+                # controllers can do gyroscopic-precession feedforward
+                # against the rotor angular momentum — which becomes
+                # significant on the VTOL with its large rotors.
+                "motor_omegas": state.motor_omegas.copy(),
             },
             "battery": float(self.battery.charge),
             "time": float(self._t),
