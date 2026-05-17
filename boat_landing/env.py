@@ -287,6 +287,15 @@ class BoatLandingEnv:
                 f"action must have shape ({n_motors},) "
                 f"(per-motor throttle for this drone spec); got {action.shape}"
             )
+        # Reject non-finite actions here, BEFORE the clip — np.clip(NaN, 0, 1)
+        # returns NaN, which would otherwise propagate into the drone sim
+        # and only be caught one substep later by the state-NaN guard,
+        # corrupting motor RPMs in the meantime.
+        if not np.all(np.isfinite(action)):
+            raise ValueError(
+                "action contains non-finite values (NaN or Inf); "
+                "agent must emit finite per-motor throttles"
+            )
         action = np.clip(action, 0.0, 1.0)
 
         # Wind: sampled once per agent step, held constant over the substeps.
@@ -322,15 +331,15 @@ class BoatLandingEnv:
             ):
                 # Keep the public-facing message short and free of
                 # organizer-private state (wind force is RNG-seeded and
-                # mustn't appear in error_message that ships back to
-                # participants — see release-eval JSON). Full diagnostics
-                # are emitted to stderr for the organizer.
+                # mustn't appear in error_message OR in stderr that ships
+                # back to participants — see release-eval JSON). Only the
+                # action and the non-finite state are echoed; the wind
+                # vector stays internal.
                 import sys as _sys
                 print(
                     f"[env] non-finite drone state at step {self._step_count}: "
                     f"pos={state.position}, vel={state.velocity}, "
-                    f"quat={state.quaternion}, action={action.tolist()}, "
-                    f"wind={self._wind_force_world.tolist()}",
+                    f"quat={state.quaternion}, action={action.tolist()}",
                     file=_sys.stderr,
                 )
                 raise RuntimeError(

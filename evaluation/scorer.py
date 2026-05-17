@@ -116,22 +116,27 @@ def compute_score(
         # Unknown / non-terminal — neutral.
         return 0.0, breakdown
 
-    # Numeric guards: any non-finite input degrades to a soft-fail (0)
-    # rather than propagating NaN through the multiplication and out into
-    # the JSON. `json.dumps(NaN)` emits a non-standard token that breaks
-    # the leaderboard parser.
-    def _finite(x: Any, default: float = 0.0) -> float:
+    # Numeric guards: any non-finite input degrades to the WORST-case
+    # value rather than to a neutral 0. With a 0 default a NaN
+    # landing_position_error would collapse to precision_factor=1.0
+    # (full credit) and NaN max_descent_velocity to 0.0 < 1.0 (free
+    # soft-landing bonus). Defaults below intentionally push every
+    # factor toward its floor so a corrupt input never inflates score.
+    # `json.dumps(NaN)` also emits a non-standard token that breaks the
+    # leaderboard parser; allow_nan=False at the eval boundary is the
+    # belt to this suspenders.
+    def _finite(x: Any, default: float) -> float:
         try:
             v = float(x)
         except (TypeError, ValueError):
             return default
         return v if np.isfinite(v) else default
 
-    err = _finite(landing_position_error, 0.0)
-    time_to_land_f = _finite(time_to_land, 0.0)
+    err = _finite(landing_position_error, 1.5)              # max err -> precision_factor=0
+    time_to_land_f = _finite(time_to_land, max(float(duration_max), 1e-6))   # full duration -> time_factor=floor
     duration_max_f = _finite(duration_max, 1e-6)
-    battery_remaining_f = _finite(battery_remaining, 0.0)
-    max_descent_velocity_f = _finite(max_descent_velocity, 0.0)
+    battery_remaining_f = _finite(battery_remaining, 0.0)   # empty -> battery_factor=floor
+    max_descent_velocity_f = _finite(max_descent_velocity, float("inf"))     # never trigger soft bonus
     base = 50.0
     precision_factor = max(0.0, 1.0 - err / 1.5)
     time_factor = max(0.5, 1.0 - time_to_land_f / max(duration_max_f, 1e-6))

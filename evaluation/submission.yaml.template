@@ -16,10 +16,6 @@
 
 team:           "Your Team Name"
 
-# Paths relative to the repo root.
-drone_sim_path: "agents/drone_sim_baseline.py"
-agent_path:     "agents/agent_baseline.py"
-
 # ----- Declared simulator features (Tier 1, 5 points each, max 30) ---------
 # Only declare what you actually implemented. Each `true` triggers an
 # automated test; failure = 0 points + dishonesty flag.

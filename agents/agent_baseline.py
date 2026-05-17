@@ -200,6 +200,7 @@ class BaselineAgent:
         self.pid_yaw = PID(kp=1.0, ki=0.0, kd=0.0)
 
         self.phase = PHASE_SEARCH
+        self._prev_phase: Optional[str] = None
         self._last_marker_world: Optional[np.ndarray] = None
         self._frames_since_detection = 0
         self._last_estimate: Optional[Dict] = None
@@ -367,6 +368,17 @@ class BaselineAgent:
     def control(
         self, drone_state: Dict, boat_estimate: Dict, phase: str
     ) -> np.ndarray:
+        # Reset PID integrators on phase transitions. Without this, the
+        # z-PID's integrator saturates during a prolonged LAND (err is
+        # always large-negative against the -0.5 m target) and carries
+        # that bias into a subsequent APPROACH, e.g. when a recovery
+        # scenario briefly loses the marker and forces re-search.
+        if self._prev_phase is not None and phase != self._prev_phase:
+            self.pid_x.reset()
+            self.pid_y.reset()
+            self.pid_z.reset()
+        self._prev_phase = phase
+
         pos = np.asarray(drone_state["position"], dtype=np.float64)
         target = boat_estimate.get("position")
         if target is None:

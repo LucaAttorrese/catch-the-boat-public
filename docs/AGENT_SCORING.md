@@ -40,7 +40,7 @@ top. HW-readiness bonuses are independent — claim 0, 1, 2, or all 3.
 | Case                                                       | Score range  |
 | ---------------------------------------------------------- | ------------ |
 | Crash                                                      | `-20`        |
-| Timeout / out of battery                                   | `0`          |
+| Soft-fail (TIMEOUT, OUT_OF_BATTERY, WALL_TIMEOUT, ERROR, OUT_OF_MEMORY, ABORTED) | `0` |
 | Lands at the platform edge, full battery, slow             | `~5–30`      |
 | Lands centered, fast, full battery                         | `~40–55`     |
 | Centered, fast, soft, with a good Kalman estimate          | `~65–70`     |
@@ -49,6 +49,19 @@ top. HW-readiness bonuses are independent — claim 0, 1, 2, or all 3.
 | Add: act() p95 latency ≤ 20 ms                             | `+ 15`       |
 | Add: scenario-`recovery` drift + reacquire                 | `+ 15`       |
 | Theoretical max total                                      | `70 + 45 = 115` |
+
+The shipped baseline (`agents/agent_baseline.py`) lands EASY at
+**~69 / 70** in ~8.5 s — it brushes the "great" band on EASY because
+it earns the latency bonus and a strong estimation bonus, but its
+LAND descent is bang-bang and forfeits the soft-landing bonus. It
+times out or crashes on MEDIUM / HARD (no boat-motion prediction,
+no yaw control). Aim higher than the baseline on the harder
+scenarios — that's where the rubric has the most room.
+
+> Note on soft-fail: outcomes `WALL_TIMEOUT`, `ERROR`, and
+> `OUT_OF_MEMORY` all score 0, never −20. They mean "your agent
+> didn't fly the drone into the water" — they mean "your agent didn't
+> finish in time / raised / OOM'd". Treated as bugs, not crashes.
 
 ## Components in detail
 

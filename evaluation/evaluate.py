@@ -145,7 +145,7 @@ def load_agent(agent_path: str, drone_spec=None):
 
 def _detect_agent_mode(agent) -> str:
     """Decide whether to call `agent.act_setpoint` (FC-compatible 4-DoF
-    setpoint, +5 pt bonus) or the legacy `agent.act` (motor throttles).
+    setpoint, +15 pt bonus) or the legacy `agent.act` (motor throttles).
 
     `act_setpoint` wins if present, even if `act` is also defined — this
     way an agent that exposes both is unambiguously scored as FC-compatible.
@@ -312,6 +312,10 @@ def run_episode(
                 raise ValueError(
                     f"act_setpoint must return shape (4,) — "
                     f"(thrust_norm, roll, pitch, yaw_rate); got {sp.shape}"
+                )
+            if not np.all(np.isfinite(sp)):
+                raise ValueError(
+                    f"act_setpoint must return finite values; got {sp.tolist()}"
                 )
             thrust_norm, roll, pitch, yaw_rate = sp
             action = attitude_ctrl(  # type: ignore[misc]
@@ -599,10 +603,24 @@ def main() -> int:
                 f"simulator binary is not importable on this host.\n"
                 f"{exc}\n"
                 f"Run this command through `docker/run-local.sh` "
-                f"(or `docker/run-local.ps1` on Windows) where the "
-                f"compiled wheel is installed.",
+                f"(or `docker/run-local.ps1` on Windows) — or pull "
+                f"ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon — "
+                f"where the compiled binary is installed.",
                 file=sys.stderr,
             )
+            # Emit a placeholder JSON on stdout too, so the batch harness
+            # that parses one JSON per run doesn't choke on an empty
+            # stream. Score 0, outcome ERROR.
+            print(json.dumps({
+                "score": 0.0,
+                "outcome": "ERROR",
+                "error_type": "MissingReferenceSim",
+                "error_message": str(exc)[:240],
+                "scenario_id": resolve_scenario(args.scenario).stem,
+                "agent": str(Path(args.agent).resolve()),
+                "drone_sim": "boat_landing.reference_sim (unavailable)",
+                "breakdown": {"outcome": "ERROR", "components": {}},
+            }, indent=2, allow_nan=False))
             return 2
         drone_sim = _make_ref_sim(str(drone_spec_path))
     else:

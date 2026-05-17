@@ -15,13 +15,12 @@ $Memory = if ($env:CHALLENGE_MEMORY) { $env:CHALLENGE_MEMORY } else { "8g" }
 
 # Default tag is `challenge-eval:base` (built locally from
 # docker/Dockerfile.eval). To run against the organizer-published
-# image with the reference simulator baked in, override:
-#   $env:CHALLENGE_IMAGE = "challenge-eval:full"
-#   .\docker\run-local.ps1 ...
-# Or pull and re-tag the published image (auth + public access flow
-# will be announced by organizers at event start):
+# image with the reference simulator baked in, pull and re-tag:
 #   docker pull ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon
 #   docker tag  ghcr.io/skyeusoftware/catch-the-boat:2026-hackathon challenge-eval:full
+# Then either set `$env:CHALLENGE_IMAGE = "challenge-eval:full"` or
+# invoke this script with CHALLENGE_IMAGE=challenge-eval:full prefixed.
+# The published image is public — no login required.
 
 # Build if the image isn't already there.
 docker image inspect $Image 2>$null | Out-Null

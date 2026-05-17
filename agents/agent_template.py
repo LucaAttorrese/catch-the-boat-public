@@ -267,13 +267,18 @@ class TemplateAgent:
 
         BASELINE: three independent PIDs (x, y, z) on body-frame errors,
         feeding (A) above with the result. No yaw control, constant per-
-        phase target altitudes, no feed-forward.
+        phase target altitudes, no feed-forward. In LAND phase the thrust
+        PID is overridden with thrust_norm=-1 (bang-bang minimum) so the
+        drone punches through the reference sim's ground-effect cushion
+        — that's how the baseline lands EASY at all, but the descent is
+        crude and forfeits the soft-landing bonus.
 
         WHY IT'S WEAK:
         - Independent axes ignore the cross-coupling caused by tilt.
         - No feed-forward on the boat's velocity, so we always chase.
         - No wind compensation.
-        - No descent profile beyond a fixed setpoint per phase.
+        - LAND descent is bang-bang — fast but rough, no soft-landing
+          bonus on touchdown.
         - No active yaw to align fuselage with boat heading — the
           wing-perpendicular landing condition will fail unless the boat
           happens to be aligned with world x at touchdown.
@@ -288,7 +293,10 @@ class TemplateAgent:
            setpoint, inner loop on velocity -> attitude setpoint.
         4. Wind feed-forward: estimate wind from steady-state attitude
            offset and add a cancelation term to thrust direction.
-        5. Smooth descent profile: target_z(t) decreases monotonically.
+        5. SOFT DESCENT PROFILE: replace baseline's bang-bang LAND with a
+           target_z(t) that decreases monotonically and matches a
+           smooth |v_z| < 1 m/s on touchdown — recovers the +5 soft
+           landing bonus the baseline gives up.
         6. Light MPC: optimize the next 1-2 s over a low-DOF horizon.
         """
         # TODO: replace with your controller. Default = hover throttle.

@@ -46,8 +46,8 @@ Empirical results on a clean install (seed 42, default VTOL):
 
 | Scenario | Outcome | Why |
 | -------- | ------- | --- |
-| EASY     | LANDED ~55/70 (+15 latency bonus) | Stationary boat, no wind, no oscillation, fps=50, fog=0. |
-| MEDIUM   | TIMEOUT | Boat moves at 1.5 m/s + 20 fps camera + 0.05 fog density + 25° yaw tolerance. The baseline doesn't predict boat motion (lags behind) AND doesn't yaw-align (fails landing condition). It hovers around the marker without committing. |
+| EASY     | LANDED ~69/70 (+15 latency bonus, no soft-landing bonus) | Stationary boat, no wind, no oscillation, fps=50, fog=0. Baseline lands in ~8.5 s but its bang-bang LAND descent (thrust pinned to -1 to punch through ground effect) saturates descent velocity → no soft-landing bonus. |
+| MEDIUM   | TIMEOUT | Boat moves at 1.5 m/s + 20 fps camera + 0.05 fog density + 25° yaw tolerance. The baseline doesn't predict boat motion (lags behind) AND doesn't yaw-align (fails landing condition). |
 | HARD     | TIMEOUT/CRASHED | Curved trajectory + 10 fps + 0.15 fog + 5 px motion blur + 20° yaw tol + 5 %/s occlusions. Baseline can't track a moving target through fog with stale frames. |
 
 The shortest path to better numbers is listed below in priority order.

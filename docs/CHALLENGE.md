@@ -42,9 +42,16 @@ A platform contact counts as **LANDED** iff all four hold:
 | Condition | Default threshold |
 | --- | --- |
 | `descent_velocity` at touchdown | `< 3.0 m/s` |
-| Drone center within platform footprint | `\|xy_err\| < 0.5 m` per axis |
+| Drone center within platform footprint **in the boat body frame** | `\|xy_err\| < 0.5 m` per axis (after rotation by `boat.heading`) |
 | Fuselage axis aligned with boat heading (mod π) | scenario-dependent (35° / 25° / 20°) |
 | Platform contact (not hull, not water) | `getClosestPoints` |
+
+> The xy footprint check rotates `(drone_x - boat_x, drone_y - boat_y)`
+> into the boat's body frame before applying the `±0.5 m` axis-aligned
+> bound. On scenarios with `boat.heading != 0` (medium / hard / curved
+> trajectories) this is materially different from a world-axis bound —
+> a landing on the platform's leading corner during a turn passes
+> correctly, where a world-axis check would have rejected it.
 
 Fuselage alignment is the trickiest of the four: the drone's body x-axis
 (forward) must be aligned with the boat's heading axis modulo π. Land
@@ -261,12 +268,14 @@ parameters that overfit.
   similarity check caps your sim-track score at 0 if you do.
 - **Introspection / sandbox-escape attempts**: `import inspect` to
   walk the call stack and reach env internals, `import gc` to scan
-  the heap for the env reference, reading `info` directly, importing
-  `BoatLandingEnv` inside your agent to construct another env,
-  reading files outside your own folder (we don't ship the eval
-  scenarios alongside your code — but if you discover any, reading
-  them is cheating). Any of these patterns triggers
-  `evaluation/code_audit.py` and gets your submission flagged for
+  the heap for the env reference, `import pybullet` to query the
+  boat body directly (the agent has no business calling PyBullet),
+  `import ctypes` / `import pickle` (arbitrary code), reading `info`
+  directly, importing `BoatLandingEnv` inside your agent to construct
+  another env, reading files outside your own folder (we don't ship
+  the eval scenarios alongside your code — but if you discover any,
+  reading them is cheating). Any of these patterns triggers the
+  organizer code-audit scan and gets your submission flagged for
   manual review. Confirmed cheats are **disqualified**.
 
 ## Hardware track (optional, +60 pts)

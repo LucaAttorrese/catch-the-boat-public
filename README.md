@@ -274,9 +274,14 @@ is still meaningfully rewarded. Detail and worked examples in
 | Outcome           | Agent score range |
 | ----------------- | ----------------- |
 | Crash             | `-20`             |
-| Timeout / battery | `0`               |
-| Land (typical)    | `~15–55`          |
-| Land (great)      | `~60–70`          |
+| Soft-fail (timeout, battery, wall-cap, error, OOM) | `0`             |
+| Land (typical)    | `~25–65`          |
+| Land (great)      | `~65–70` + HW-readiness bonuses |
+
+The shipped `agents/agent_baseline.py` lands EASY at ~69/70 in
+~8.5 s (latency + estimation bonuses earned; soft-landing bonus
+forfeited because the LAND descent is bang-bang). It times out on
+MEDIUM and HARD — that's where most of the headroom lives.
 
 **Simulator score** rewards physical fidelity. Four mandatory gate
 tests (incl. T0.5 hidden category) + six auto-tested fidelity features:

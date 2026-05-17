@@ -149,10 +149,14 @@ or your sim is disqualifying.**
 
 | Outcome           | Trigger                                                   |
 | ----------------- | --------------------------------------------------------- |
-| `LANDED`          | All four hold: drone contacts the platform, drone center within ±0.5 m of platform xy, descent velocity < `CRASH_VERT_VEL` (3 m/s), and **fuselage axis aligned with boat heading mod π** within `landing.yaw_alignment_tol_deg` (default 30°). |
+| `LANDED`          | All four hold: drone contacts the platform, drone center within ±0.5 m of platform xy **in the boat body frame** (xy delta rotated by `boat.heading`), descent velocity < `CRASH_VERT_VEL` (3 m/s), and **fuselage axis aligned with boat heading mod π** within `landing.yaw_alignment_tol_deg` (scenario-dependent, 35° / 25° / 20°). |
 | `CRASHED`         | Drone hits the hull (off-platform), or the water (`z < 0`), or the platform with descent ≥ 3 m/s, or the platform with yaw misalignment > tolerance. |
-| `TIMEOUT`         | Episode wall time ≥ `duration_max`.                       |
+| `TIMEOUT`         | Episode sim time ≥ `duration_max`.                        |
 | `OUT_OF_BATTERY`  | `battery <= 0`.                                           |
+| `WALL_TIMEOUT`    | Wall-clock time exceeds `--wall-cap-multiplier × duration_max` (default 10×). Slow agent. Scored 0, never −20. |
+| `ERROR`           | Agent raised an unhandled exception. Scored 0. |
+| `OUT_OF_MEMORY`   | Episode process hit `MemoryError` (e.g., participant allocates >8 GB). Scored 0. |
+| `ABORTED`         | Episode terminated by an organizer-side wall in `_check_termination`. Scored 0. |
 
 Fuselage alignment (third bullet of `LANDED`) is the trickiest of the
 four — yaw planning is part of the agent's job.
