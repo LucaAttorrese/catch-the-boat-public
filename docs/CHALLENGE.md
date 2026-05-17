@@ -43,7 +43,7 @@ A platform contact counts as **LANDED** iff all four hold:
 | --- | --- |
 | `descent_velocity` at touchdown | `< 3.0 m/s` |
 | Drone center within platform footprint **in the boat body frame** | `\|xy_err\| < 0.5 m` per axis (after rotation by `boat.heading`) |
-| Fuselage axis aligned with boat heading (mod π) | scenario-dependent (35° / 25° / 20°) |
+| Fuselage axis aligned with boat heading (mod π) | scenario-dependent (35° / 30° / 25°) |
 | Platform contact (not hull, not water) | `getClosestPoints` |
 
 > The xy footprint check rotates `(drone_x - boat_x, drone_y - boat_y)`
@@ -56,7 +56,7 @@ A platform contact counts as **LANDED** iff all four hold:
 Fuselage alignment is the trickiest of the four: the drone's body x-axis
 (forward) must be aligned with the boat's heading axis modulo π. Land
 sideways and you crash. The tolerance is set per scenario in
-`landing.yaw_alignment_tol_deg` (easy: 35°, medium: 25°, hard: 20°).
+`landing.yaw_alignment_tol_deg` (easy: 35°, medium: 30°, hard: 25°).
 
 The VTOL has weak yaw authority by design — start aligning yaw
 **early** in the approach phase or you won't make the tolerance.
@@ -234,8 +234,8 @@ Three public scenarios ship with this repo (`scenarios/`):
 | Scenario | Boat motion       | Wind            | Oscillation | Camera fps | Fog density | Yaw tol |
 | -------- | ----------------- | --------------- | ----------- | ---------- | ----------- | ------- |
 | EASY     | static            | none            | none        | 50 (none)  | 0           | 35°     |
-| MEDIUM   | linear @ 1.5 m/s  | mild (0.3 N)    | mild        | 20         | 0.05        | 25°     |
-| HARD     | curved @ 2.5 m/s  | gusty (0.6 N)   | strong      | 10         | 0.15        | 20°     |
+| MEDIUM   | linear @ 1.0 m/s  | mild (0.3 N)    | mild        | 25         | 0.03        | 30°     |
+| HARD     | curved @ 1.8 m/s  | gusty (0.6 N)   | strong      | 15         | 0.10        | 25°     |
 
 The real evaluation scenarios (kept private until the event ends) use
 the same schema. They are tuned to be no harder than HARD but to

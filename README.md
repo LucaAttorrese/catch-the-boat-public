@@ -197,15 +197,18 @@ for fidelity bonuses.
 
 | Scenario | Boat motion       | Wind            | Oscillation | Camera fps | Fog | Yaw tol |
 | -------- | ----------------- | --------------- | ----------- | ---------- | --- | ------- |
-| EASY     | static            | none            | none        | 50         | 0   | 35°     |
-| MEDIUM   | linear @ 1.5 m/s  | mild (0.3 N)    | mild        | 20         | 0.05 | 25°    |
-| HARD     | curved @ 2.5 m/s  | gusty (0.6 N)   | strong      | 10         | 0.15 | 20°    |
+| EASY     | static            | none            | none        | 50         | 0    | 35°    |
+| MEDIUM   | linear @ 1.0 m/s  | mild (0.3 N)    | mild        | 25         | 0.03 | 30°    |
+| HARD     | curved @ 1.8 m/s  | gusty (0.6 N)   | strong      | 15         | 0.10 | 25°    |
 
-The baseline lands on EASY, times-out on MEDIUM, and never lands on
-HARD — there's lots of headroom for a Kalman filter on the boat
-estimate, velocity feed-forward, **active yaw alignment**, and
-motion-blur / fog robustness. See [`docs/TIPS.md`](docs/TIPS.md) for
-the priority order.
+The baseline lands on EASY, times-out on MEDIUM, and crashes on HARD
+— there's lots of headroom for a Kalman filter on the boat estimate,
+velocity feed-forward, **active yaw alignment**, smooth descent
+profile, and motion-blur / fog robustness. An oracle agent with
+ground-truth boat pose can land all three with a stock cascade
+controller (no perception, no estimation) — proof the scenarios are
+physically solvable. See [`docs/TIPS.md`](docs/TIPS.md) for the
+priority order.
 
 Run a scenario with the baseline (defaults to VTOL spec):
 

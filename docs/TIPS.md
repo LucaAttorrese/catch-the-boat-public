@@ -46,9 +46,14 @@ Empirical results on a clean install (seed 42, default VTOL):
 
 | Scenario | Outcome | Why |
 | -------- | ------- | --- |
-| EASY     | LANDED ~69/70 (+15 latency bonus, no soft-landing bonus) | Stationary boat, no wind, no oscillation, fps=50, fog=0. Baseline lands in ~8.5 s but its bang-bang LAND descent (thrust pinned to -1 to punch through ground effect) saturates descent velocity → no soft-landing bonus. |
-| MEDIUM   | TIMEOUT | Boat moves at 1.5 m/s + 20 fps camera + 0.05 fog density + 25° yaw tolerance. The baseline doesn't predict boat motion (lags behind) AND doesn't yaw-align (fails landing condition). |
-| HARD     | TIMEOUT/CRASHED | Curved trajectory + 10 fps + 0.15 fog + 5 px motion blur + 20° yaw tol + 5 %/s occlusions. Baseline can't track a moving target through fog with stale frames. |
+| EASY     | LANDED ~69/70 (+15 latency bonus, no soft-landing bonus) | Stationary boat, no wind, no oscillation, fps=50, fog=0. Baseline lands in ~10 s but its bang-bang LAND descent (thrust pinned to -1 to punch through ground effect) saturates descent velocity → no soft-landing bonus. |
+| MEDIUM   | TIMEOUT | Boat moves at 1.0 m/s + 25 fps camera + 0.03 fog + 30° yaw tolerance. Baseline doesn't predict boat motion → trails behind, never converges to the platform footprint. |
+| HARD     | CRASHED | Curved trajectory @ 1.8 m/s + 15 fps + 0.10 fog + 3 px motion blur + 3 %/s occlusions + 25° yaw tol. Baseline loses tracking through fog and can't follow the curve. |
+
+An oracle agent with ground-truth boat pose lands all three with a
+plain cascade controller — proof the scenarios are physically
+solvable. The gap baseline→oracle on MEDIUM/HARD is the perception +
+state-estimation + active-yaw work each team needs to do.
 
 The shortest path to better numbers is listed below in priority order.
 Doing **#1 (Kalman) + #2 (yaw alignment)** alone typically pulls

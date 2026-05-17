@@ -4,19 +4,19 @@ battery_initial: 1.0
 battery_drain_rate: 0.012
 battery_drain_aggressive: 0.03
 drone_start:
-  position: [12.0, -8.0, 9.0]
+  position: [8.0, -3.0, 7.0]
   attitude: [0.0, 0.0, 0.0]
 boat:
   trajectory_type: "curve"
   start_position: [0.0, 0.0, 0.20]
-  speed: 2.5
+  speed: 1.8
   heading_initial: 0.0
-  curve_radius: 18.0
+  curve_radius: 30.0
   curve_direction: 1
   oscillation:
-    roll_amplitude: 0.15
-    pitch_amplitude: 0.10
-    frequency: 0.6
+    roll_amplitude: 0.10
+    pitch_amplitude: 0.07
+    frequency: 0.5
 wind:
   enabled: true
   mean_force: [0.6, -0.2, 0.0]
@@ -24,11 +24,11 @@ wind:
   gust_frequency: 0.25
 camera:
   noise_level: 0.05
-  motion_blur_kernel: 5       # 5-px horizontal blur
-  fog_density: 0.15           # dense haze
-  fps: 10                     # 10 Hz: a fresh frame every ~5 env steps
-  occlusion_probability: 0.05
+  motion_blur_kernel: 3       # 3-px horizontal blur
+  fog_density: 0.10           # dense haze
+  fps: 15                     # 15 Hz: fresh frame every ~3 env steps
+  occlusion_probability: 0.03
   occlusion_duration: 1.0
 landing:
-  yaw_alignment_tol_deg: 20.0
+  yaw_alignment_tol_deg: 25.0
 seed: 42
