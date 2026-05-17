@@ -32,6 +32,10 @@ Deliberate weaknesses (improvement directions for teams):
     - No active yaw control to align with boat heading — the wing-
       perpendicular landing condition will fail unless the boat happens
       to be aligned with the world x-axis at touchdown.
+    - LAND-phase descent is bang-bang (thrust pinned to its lower bound)
+      to brute-force through ground effect. Descent velocity often
+      saturates and forfeits the soft-landing bonus. A smooth descent
+      profile + velocity feed-forward both recover and stack.
 
 Don't optimize the baseline. Fork agent_template.py and build your own.
 """
@@ -401,6 +405,18 @@ class BaselineAgent:
         pitch_cmd = self.pid_x(err_body[0], self.DT, measurement_velocity=vel_body[0])
         roll_cmd = -self.pid_y(err_body[1], self.DT, measurement_velocity=vel_body[1])
         thrust_cmd = self.pid_z(err_world[2], self.DT, measurement_velocity=vel_world[2])
+        # In LAND, force thrust to the controller's lower bound (50% hover
+        # thrust). The z-PID alone outputs ~ -0.10 at this altitude — over
+        # the platform the reference sim's ground-effect amplification cancels
+        # that small negative bias and the drone hovers ~0.2 m above the deck
+        # forever. Full negative thrust pushes through the GE cushion (cap is
+        # 2× per-motor in the ref sim, so worst-case F_eff ≈ mg at h ≈ 0.05 m)
+        # and the drone touches down. Crude — descent is uncontrolled and
+        # max_descent_velocity often saturates, killing the soft-landing
+        # bonus. Smooth descent profiles + velocity feed-forward are left
+        # as exercises.
+        if phase == PHASE_LAND:
+            thrust_cmd = -1.0
         yaw_rate_cmd = 0.0
 
         # Hand the high-level (thrust, roll, pitch, yaw_rate) setpoints to
