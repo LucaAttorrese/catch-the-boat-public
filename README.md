@@ -54,9 +54,15 @@ inside a fixed Docker container; see [`docs/DOCKER.md`](docs/DOCKER.md).
 ```bash
 git clone <this-repo>
 cd catch-the-boat
+
+# Linux / macOS:
 python3.10 -m venv .venv
-source .venv/bin/activate                   # macOS / Linux
-# .venv\Scripts\activate                    # Windows
+source .venv/bin/activate
+
+# Windows (PowerShell) — the launcher exposes 3.10 as `py -3.10`:
+#   py -3.10 -m venv .venv
+#   .venv\Scripts\activate
+
 pip install -r requirements.txt
 python scripts/test_setup.py
 python scripts/run_baseline.py --scenario easy --visualize --gui
@@ -151,7 +157,7 @@ attitude + rate-loop yaw + inverse mixer that maps high-level
 your drone spec. The baseline agent uses it.
 
 Optionally, expose `get_last_estimate()` on the agent to unlock the
-estimation bonus (0–20 points). See [`docs/API.md`](docs/API.md) for
+estimation bonus (0–15 points). See [`docs/API.md`](docs/API.md) for
 the full contract: observation/action shapes, intrinsics, termination
 conditions, simulator protocol.
 
@@ -186,7 +192,7 @@ the priority order.
 Run a scenario with the baseline (defaults to VTOL spec):
 
 ```bash
-python evaluation/evaluate.py --scenario medium --headless --seed 42
+python evaluation/evaluate.py --scenario easy --headless --seed 42
 ```
 
 You can swap each piece independently:
@@ -308,8 +314,8 @@ Three files (or a directory containing them):
 The scorers dynamically load all three and run them against the
 private eval scenarios + the validation suite.
 
-The exact submission mechanics (Slack channel? GitHub repo? Pen drive?)
-will be announced in the opening keynote — placeholder until then.
+The exact submission mechanics (Slack channel, GitHub repo, USB drop)
+will be announced at the opening keynote.
 
 ---
 

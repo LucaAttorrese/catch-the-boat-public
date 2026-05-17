@@ -169,7 +169,7 @@ docker run --rm \
     -v <submission_path>:/workspace \
     -w /workspace \
     challenge-eval \
-    python evaluation/evaluate.py --scenario-set private_eval --headless --seed <fixed>
+    python evaluation/evaluate.py --scenario <name> --headless --seed <fixed>
 ```
 
 Repeated for each private scenario, with a fixed seed. The latency

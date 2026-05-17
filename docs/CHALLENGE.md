@@ -43,7 +43,7 @@ A platform contact counts as **LANDED** iff all four hold:
 | --- | --- |
 | `descent_velocity` at touchdown | `< 3.0 m/s` |
 | Drone center within platform footprint | `\|xy_err\| < 0.5 m` per axis |
-| Fuselage axis aligned with boat heading (mod π) | `< 30°` (scenario-dependent) |
+| Fuselage axis aligned with boat heading (mod π) | scenario-dependent (35° / 25° / 20°) |
 | Platform contact (not hull, not water) | `getClosestPoints` |
 
 Fuselage alignment is the trickiest of the four: the drone's body x-axis
@@ -244,8 +244,8 @@ parameters that overfit.
 - **Reading the scenario YAML.** This counts as cheating.
 - **Reaching into `info`.** It is for evaluation only.
 - **Modifying `act()` in your fork** of `agent_template.py`. The four
-  pipeline stages (perceive / estimate / decide / control) are how we
-  compare submissions; keep them visible.
+  pipeline stages (`perceive` / `estimate` / `decide` / `control`) are
+  how we compare submissions; override them, not `act()`.
 - **Hardcoding drone spec parameters** in your `drone_sim.py`. The
   simulator must read mass, inertia, motor placement, propeller
   coefficients, etc. from the spec — values baked into the code fail

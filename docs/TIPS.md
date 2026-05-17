@@ -18,7 +18,7 @@ characteristics that will shape your agent are:
 | Property | Value | Implication |
 | --- | --- | --- |
 | Mass | 10 kg | High control authority needed; thrust-to-weight ~2.0 |
-| Inertia | asymmetric (Ix=2.54, Iy=3.47, Izz=5.74) kg·m² | Cross-axis coupling matters; T1.D rewards modelling it |
+| Inertia | asymmetric (Ixx=2.54, Iyy=3.47, Izz=5.74) kg·m² | Cross-axis coupling matters; T1.D rewards modelling it |
 | Yaw authority | **~0.85 rad/s² max angular accel** | Sluggish in yaw — start aligning EARLY |
 | Pitch responsiveness | Sluggish (long fuselage, Iy=3.47) | Bigger lookahead for forward acceleration |
 | Roll responsiveness | Moderate (Ix=2.54) | Snappier than pitch |
@@ -277,8 +277,8 @@ You don't need a CAD drawing, but a few numbers help.
 | Drone collision box (fuselage)     | 0.50 × 0.30 × 0.10 m |
 | Wingspan (visual + drag only)      | 1.7 m           |
 | Inertia (Ixx, Iyy, Izz)            | (2.54, 3.47, 5.74) kg·m² |
-| Rotor diameter                     | 0.46 m (18")    |
-| Per-motor max thrust               | ~49 N (T/W ≈ 2.0) |
+| Rotor diameter                     | 0.356 m (14")   |
+| Per-motor max thrust               | ~47 N (T/W ≈ 1.9) |
 | Yaw authority                      | **~0.85 rad/s² max angular accel** |
 
 ### Boat / platform / camera

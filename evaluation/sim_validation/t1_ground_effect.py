@@ -6,7 +6,7 @@ a ground surface, the way real rotorcraft do due to air recirculation.
 Physical model (Cheng-Frantz approximation, the textbook starting point):
     T_eff = T * (1 + a * (R / h)^2),      with R = rotor radius,
                                           h = altitude above surface,
-                                          a ≈ 0.25-0.5
+                                          a ≈ 0.10-0.50 (literature range)
 
 Test:
     1. Reset the drone exactly one rotor diameter (h = R) above a
@@ -21,10 +21,10 @@ Test:
 Without ground effect: T = mg exactly, so the drone hovers (Δz ≈ 0).
 With ground effect: T_eff > mg at h = R, so the drone climbs measurably.
 
-Pass criterion: vertical drift > 5 cm in 0.5 s. With a = 0.25 and h = R
-the multiplier is 1.25 → excess upward acceleration ≈ 0.25g ≈ 2.45 m/s²
-→ Δz ≈ 0.5 · 2.45 · 0.25² ≈ 0.31 m, well above the threshold. A sim
-that ignores `ext_ground_z` produces Δz ≈ 0 and fails the test.
+Pass criterion: vertical drift > 5 cm in 0.5 s. With a = 0.10 and h = R
+the multiplier is 1.10 → excess upward acceleration ≈ 0.10g ≈ 0.98 m/s²
+→ Δz ≈ 0.5 · 0.98 · 0.25² ≈ 12 cm, comfortably above the threshold. A
+sim that ignores `ext_ground_z` produces Δz ≈ 0 and fails the test.
 
 This test is intentionally indifferent to the specific formula used —
 it only checks that some altitude-dependent thrust amplification is

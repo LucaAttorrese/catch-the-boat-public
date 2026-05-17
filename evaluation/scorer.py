@@ -116,12 +116,27 @@ def compute_score(
         # Unknown / non-terminal — neutral.
         return 0.0, breakdown
 
-    err = float(landing_position_error if landing_position_error is not None else 0.0)
+    # Numeric guards: any non-finite input degrades to a soft-fail (0)
+    # rather than propagating NaN through the multiplication and out into
+    # the JSON. `json.dumps(NaN)` emits a non-standard token that breaks
+    # the leaderboard parser.
+    def _finite(x: Any, default: float = 0.0) -> float:
+        try:
+            v = float(x)
+        except (TypeError, ValueError):
+            return default
+        return v if np.isfinite(v) else default
+
+    err = _finite(landing_position_error, 0.0)
+    time_to_land_f = _finite(time_to_land, 0.0)
+    duration_max_f = _finite(duration_max, 1e-6)
+    battery_remaining_f = _finite(battery_remaining, 0.0)
+    max_descent_velocity_f = _finite(max_descent_velocity, 0.0)
     base = 50.0
     precision_factor = max(0.0, 1.0 - err / 1.5)
-    time_factor = max(0.5, 1.0 - time_to_land / max(duration_max, 1e-6))
-    battery_factor = max(0.3, float(battery_remaining))
-    soft_bonus = 5.0 if max_descent_velocity < 1.0 else 0.0
+    time_factor = max(0.5, 1.0 - time_to_land_f / max(duration_max_f, 1e-6))
+    battery_factor = max(0.3, battery_remaining_f)
+    soft_bonus = 5.0 if max_descent_velocity_f < 1.0 else 0.0
     est_bonus = compute_estimation_bonus(estimation_rmse)
 
     landing_score = base * precision_factor * time_factor * battery_factor
@@ -131,12 +146,12 @@ def compute_score(
         "base": base,
         "landing_position_error_m": err,
         "precision_factor": precision_factor,
-        "time_to_land_s": float(time_to_land),
-        "duration_max_s": float(duration_max),
+        "time_to_land_s": time_to_land_f,
+        "duration_max_s": duration_max_f,
         "time_factor": time_factor,
-        "battery_remaining": float(battery_remaining),
+        "battery_remaining": battery_remaining_f,
         "battery_factor": battery_factor,
-        "max_descent_velocity_mps": float(max_descent_velocity),
+        "max_descent_velocity_mps": max_descent_velocity_f,
         "soft_landing_bonus": soft_bonus,
         "estimation_rmse_m": (
             None if estimation_rmse is None else float(estimation_rmse)

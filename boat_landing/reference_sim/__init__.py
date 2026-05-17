@@ -34,7 +34,20 @@ This module never imports `boat_landing.boat`, `boat_landing.wind`, or
 much as to participant simulators.
 """
 
-from boat_landing.reference_sim._core import ReferenceDroneSim  # noqa: F401
+try:
+    from boat_landing.reference_sim._core import ReferenceDroneSim  # noqa: F401
+except ImportError as exc:
+    # The shipped wheel contains a Linux-x86_64 `.so`. Importing it from
+    # a Windows / macOS host (or a Linux host without the wheel installed)
+    # fails here. Re-raise with a message that tells the participant where
+    # the reference sim is actually meant to run.
+    raise ImportError(
+        "Reference simulator binary not available on this host. The "
+        "compiled `_core` ships as a Linux-x86_64 `.so` inside the "
+        "evaluation container. Run --use-reference-sim through "
+        "`docker/run-local.sh` (or `docker/run-local.ps1` on Windows). "
+        f"Underlying error: {exc}"
+    ) from exc
 
 
 def make_drone_sim(spec_path: str) -> "ReferenceDroneSim":

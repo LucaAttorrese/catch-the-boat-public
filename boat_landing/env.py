@@ -320,11 +320,22 @@ class BoatLandingEnv:
                 and np.all(np.isfinite(state.velocity))
                 and np.all(np.isfinite(state.quaternion))
             ):
+                # Keep the public-facing message short and free of
+                # organizer-private state (wind force is RNG-seeded and
+                # mustn't appear in error_message that ships back to
+                # participants — see release-eval JSON). Full diagnostics
+                # are emitted to stderr for the organizer.
+                import sys as _sys
+                print(
+                    f"[env] non-finite drone state at step {self._step_count}: "
+                    f"pos={state.position}, vel={state.velocity}, "
+                    f"quat={state.quaternion}, action={action.tolist()}, "
+                    f"wind={self._wind_force_world.tolist()}",
+                    file=_sys.stderr,
+                )
                 raise RuntimeError(
                     f"DroneSimulator produced non-finite state at step "
-                    f"{self._step_count} substep: pos={state.position}, "
-                    f"vel={state.velocity}, quat={state.quaternion}, "
-                    f"action={action.tolist()}, wind={self._wind_force_world.tolist()}"
+                    f"{self._step_count}"
                 )
 
             # 5. Check termination. Contact detection uses getClosestPoints
@@ -698,6 +709,14 @@ class BoatLandingEnv:
         )[:, :, :3].copy()
 
     def _get_info(self) -> Dict:
+        """ORGANIZER-ONLY info dict. Consumed by the evaluator for scoring.
+
+        DO NOT forward any field of this dict to agent code: `boat_position`,
+        `boat_velocity`, `boat_heading`, `boat_roll`, `boat_pitch`, and
+        `wind_force` are ground truth that the agent must infer from
+        camera + drone state alone. `code_audit.py` flags direct subscript
+        reads of these keys (and `_get_info` itself) in submissions.
+        """
         return {
             "boat_position": self.boat.position.copy(),
             "boat_velocity": self.boat.get_velocity().copy(),
@@ -738,9 +757,17 @@ class BoatLandingEnv:
 
         boat_pos = self.boat.position
         descent_vel = -float(vel[2])
+        # Rotate xy offset into the boat's body frame: the platform is
+        # an axis-aligned square in the boat frame, NOT in the world.
+        # When boat_heading != 0 the world-aligned check used to be
+        # tightened along the diagonals and loosened along the axes,
+        # silently rejecting valid corner landings on hard scenarios.
+        dx, dy = pos[0] - boat_pos[0], pos[1] - boat_pos[1]
+        ch, sh = np.cos(self.boat.heading), np.sin(self.boat.heading)
+        rx, ry = ch * dx + sh * dy, -sh * dx + ch * dy
         on_platform = (
-            abs(pos[0] - boat_pos[0]) < self.PLATFORM_SIZE / 2
-            and abs(pos[1] - boat_pos[1]) < self.PLATFORM_SIZE / 2
+            abs(rx) < self.PLATFORM_SIZE / 2
+            and abs(ry) < self.PLATFORM_SIZE / 2
         )
         if descent_vel > self.CRASH_VERT_VEL:
             return True, False, "CRASHED"

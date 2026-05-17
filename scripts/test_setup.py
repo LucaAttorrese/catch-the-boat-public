@@ -88,6 +88,23 @@ def _check_local():
     return True, "boat_landing, agents, evaluation all importable"
 
 
+@check("Reference simulator (optional, Docker-only)")
+def _check_reference_sim():
+    """The reference sim is shipped as a compiled binary that targets
+    Linux-x86_64 (the eval container). On Windows / macOS hosts the
+    `import` will fail — that's expected; participants run --use-reference-sim
+    via `docker/run-local.{sh,ps1}`. Report status as INFO, never as FAIL."""
+    try:
+        from boat_landing.reference_sim import make_drone_sim  # noqa: F401
+    except Exception as exc:
+        return True, (
+            f"binary not available on this host ({type(exc).__name__}); "
+            f"this is normal off-Linux. Run --use-reference-sim inside "
+            f"docker/run-local.{{sh,ps1}}."
+        )
+    return True, "reference sim binary importable"
+
+
 @check("ArUco detector instantiates")
 def _check_detector():
     from agents.agent_baseline import BaselineAgent

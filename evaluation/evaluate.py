@@ -22,14 +22,14 @@ Optionally, the agent may expose:
     * `get_last_estimate() -> dict|None` so the scorer can compute the
       estimation-bonus RMSE.
     * `act_setpoint(obs) -> (thrust_norm, roll, pitch, yaw_rate)` instead
-      of `act()` — emits FC-compatible setpoints, scoring +5 HW-readiness
+      of `act()` — emits FC-compatible setpoints, scoring +15 HW-readiness
       points. The runner converts them to motor throttles via the stock
       `DefaultAttitudeController` BEFORE handing them to env.step.
 
 Latency profiling: the runner measures wall-clock time inside the agent
 call only (perception + estimation + control); the attitude controller
 and env are excluded. The episode-wide p95 is recorded and the scorer
-awards +5 if it is ≤ 20 ms. Run inside the eval Docker container for
+awards +15 if it is ≤ 20 ms. Run inside the eval Docker container for
 calibrated numbers (see docs/DOCKER.md).
 """
 
@@ -591,7 +591,19 @@ def main() -> int:
     if args.use_reference_sim:
         # Import lazily so dev environments that haven't built the
         # reference sim wheel can still use evaluate.py for testing.
-        from boat_landing.reference_sim import make_drone_sim as _make_ref_sim
+        try:
+            from boat_landing.reference_sim import make_drone_sim as _make_ref_sim
+        except ImportError as exc:
+            print(
+                f"error: --use-reference-sim requested but the reference "
+                f"simulator binary is not importable on this host.\n"
+                f"{exc}\n"
+                f"Run this command through `docker/run-local.sh` "
+                f"(or `docker/run-local.ps1` on Windows) where the "
+                f"compiled wheel is installed.",
+                file=sys.stderr,
+            )
+            return 2
         drone_sim = _make_ref_sim(str(drone_spec_path))
     else:
         drone_sim = load_drone_sim(args.drone_sim, str(drone_spec_path))
@@ -636,7 +648,10 @@ def main() -> int:
     )
     result["drone_spec"] = str(drone_spec_path)
     result["scenario_path"] = str(scenario_path)
-    payload = json.dumps(result, indent=2, default=_json_default)
+    # allow_nan=False so a NaN that escaped the scorer's guards fails
+    # loud here, at the eval boundary, instead of producing the non-
+    # standard `NaN`/`Infinity` tokens that downstream parsers reject.
+    payload = json.dumps(result, indent=2, default=_json_default, allow_nan=False)
     print(payload)
     if args.output:
         Path(args.output).write_text(payload, encoding="utf-8")

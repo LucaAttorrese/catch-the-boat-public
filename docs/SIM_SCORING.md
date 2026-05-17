@@ -242,7 +242,7 @@ with zero applied torque. A sim that just does `I · dω/dt = τ` (drops
 the gyro term) misses this.
 
 **Test**: applies an asymmetric thrust burst on the VTOL spec
-(asymmetric inertia: `Ix=2.54`, `Iy=3.47`, `Izz=5.74`) to imprint a
+(asymmetric inertia: `Ixx=2.54`, `Iyy=3.47`, `Izz=5.74`) to imprint a
 multi-axis ω, then commands hover throttle for 1 second. Pass criterion:
 **ω rotates by more than 3°** during the free-precession second.
 
