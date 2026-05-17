@@ -28,9 +28,17 @@ import time
 import numpy as np
 
 # Wall-clock seconds the workload takes on the organizer reference
-# machine (Jetson Orin Nano emulated via Docker --cpus=6 --memory=8g on
-# the eval host). Re-measure on your hardware and update if needed.
-REFERENCE_RUNTIME_S = 4.50
+# machine (the laptop that will run the official scoring at the event),
+# inside this same Dockerfile.eval container with --cpus=6 --memory=8g
+# and BLAS threads pinned to 6 (OPENBLAS/OMP/MKL_NUM_THREADS=6, set by
+# docker/run-local.ps1 / .sh). Pinning is required: without it BLAS
+# oversubscribes the cgroup CPU quota and run-to-run variance is ~3x.
+# Measured 2026-05-17 on the event laptop (Windows 11 + WSL2 + Docker
+# Desktop), mean of 7 runs, std dev 0.06 s (CV 3.1%). Re-measure on
+# your hardware via:
+#     ./docker/run-local.sh python docker/benchmark.py
+# and read the "scaling_factor" in the JSON to compare.
+REFERENCE_RUNTIME_S = 1.93
 
 
 def _workload_numpy(n: int = 50) -> float:
@@ -74,7 +82,8 @@ def _workload_control(n: int = 5000) -> float:
     M = rng.standard_normal((4, 8))
     M_pinv = np.linalg.pinv(M)
     state = rng.standard_normal(4)
-    omega = rng.standard_normal(3)
+    # Disturbance term shaped to match `state` (broadcast-compatible).
+    omega = rng.standard_normal(4)
     t0 = time.perf_counter()
     for i in range(n):
         # Simulate a per-step control update.

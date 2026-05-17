@@ -36,6 +36,9 @@ if ($LASTEXITCODE -ne 0) {
 docker run --rm -it `
     --cpus=$Cpus `
     --memory=$Memory `
+    -e OPENBLAS_NUM_THREADS=$Cpus `
+    -e OMP_NUM_THREADS=$Cpus `
+    -e MKL_NUM_THREADS=$Cpus `
     -v "${PWD}:/workspace" `
     -w /workspace `
     $Image @args
