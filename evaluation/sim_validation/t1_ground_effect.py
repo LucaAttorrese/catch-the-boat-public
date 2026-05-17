@@ -21,9 +21,9 @@ Test:
 Without ground effect: T = mg exactly, so the drone hovers (Δz ≈ 0).
 With ground effect: T_eff > mg at h = R, so the drone climbs measurably.
 
-Pass criterion: vertical drift > 5 cm in 0.5 s. With a = 0.10 and h = R
-the multiplier is 1.10 → excess upward acceleration ≈ 0.10g ≈ 0.98 m/s²
-→ Δz ≈ 0.5 · 0.98 · 0.25² ≈ 12 cm, comfortably above the threshold. A
+Pass criterion: vertical drift > 5 cm in 0.5 s. With a = 0.05 and h = R
+the multiplier is 1.05 → excess upward acceleration ≈ 0.05g ≈ 0.49 m/s²
+→ Δz ≈ 0.5 · 0.49 · 0.5² ≈ 6 cm, comfortably above the threshold. A
 sim that ignores `ext_ground_z` produces Δz ≈ 0 and fails the test.
 
 This test is intentionally indifferent to the specific formula used —

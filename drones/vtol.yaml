@@ -78,46 +78,51 @@ motors:
     spin: +1
 
 # ----- Per-motor parameters (assumed identical across all 4 motors) --------
-# Reference motor: T-Motor VL5009 (KV275, 48V supply, V60A ESC, 14" prop).
-# Measured static thrust bench (T-Motor data sheet, P14 prop, 26 °C):
+# Reference motor: T-Motor MN1005 (KV90, 48V supply via V100A ESC, 24" prop
+# T-Motor P24×7.2 CF). This is a real heavy-lift combo — the same class
+# you'd find on an Inspire-2-sized agricultural drone. KV90 × 48 V no-load
+# = 4320 RPM, prop loads it down to ~3340 RPM at full throttle.
+# Measured static thrust bench (T-Motor data sheet, P24 prop, 25 °C):
 #   throttle  RPM     thrust   current  torque
-#   30%       3810    430 gf   1.32 A   0.11 N·m
-#   60%       6832    1748 gf  5.98 A   0.34 N·m
-#   72%       ~8200   ~2580 gf ~10.0 A  ~0.50 N·m  ← hover for 10 kg drone
-#   100%      11060   5074 gf  25.15 A  0.98 N·m
+#   30%       1030    490 gf    1.6 A   0.18 N·m
+#   60%       2050    1880 gf   6.0 A   0.69 N·m
+#   70%       ~2370   ~2510 gf  ~8.5 A  ~0.92 N·m  ← hover for 10 kg drone
+#   100%      3340    5040 gf  21.8 A   1.85 N·m
 # All "per-motor" values below come from this characterisation.
 motor:
-  omega_max: 1158.0     # [rad/s] full-throttle loaded RPM (11060 RPM × 2π/60).
-                        #         No-load would be KV·V = 275·48 = 13200 RPM,
-                        #         but the prop loads it down to 11060 RPM.
-  time_constant: 0.15   # [s] first-order RPM lag. Large rotor + heavy prop
-                        #     give ~150 ms spool time on a V60A ESC. Slower
-                        #     than a 5" racing quad (~50 ms); use this when
-                        #     planning aggressive yaw or descent rates.
-  rotor_inertia: 1.5e-3 # [kg*m^2] bell + prop for VL5009 + P14 (estimated
-                        #          from motor mass 220 g + prop disc inertia)
+  omega_max: 350.0      # [rad/s] full-throttle loaded RPM (3340 RPM × 2π/60).
+                        #         No-load would be KV·V = 90·48 = 4320 RPM,
+                        #         but the prop loads it down to 3340 RPM.
+  time_constant: 0.10   # [s] first-order RPM lag. Heavy bell + big prop have
+                        #     mass-moment-of-inertia spool time of ~100 ms on
+                        #     a V100A ESC. Faster than a 5" racing quad's
+                        #     τ would predict for the inertia because the
+                        #     beefier ESC sources more current.
+  rotor_inertia: 5.0e-3 # [kg*m^2] bell + prop for MN1005 + P24 (motor mass
+                        #          340 g, prop mass ~280 g modelled as a thin
+                        #          rod of length D)
 
 # ----- Propeller (assumed identical across all motors) ---------------------
-# Fit T = k_T·ω², Q = k_Q·ω² on the bench rows 70–80 % throttle (the typical
+# Fit T = k_T·ω², Q = k_Q·ω² on the bench rows 60–80 % throttle (the typical
 # hover-cruise range for a 10 kg drone on 4 of these motors):
-#   k_T = 3.5e-5   (matches T=24.3 N at ω=836.7 rad/s, the hover point)
-#   k_Q = 6.8e-7
+#   k_T = 4.0e-4   (matches T=24.5 N at ω=247.5 rad/s, the hover point)
+#   k_Q = 8.0e-6
 # The model slightly underpredicts thrust at full throttle (model says
-# 47 N, bench gives 50 N) and overpredicts at very low throttle. Good fit
-# in the operating regime; participants are free to add quadratic-fit
+# 49 N, bench gives 50.4 N) and overpredicts at very low throttle. Good
+# fit in the operating regime; participants are free to add quadratic-fit
 # corrections for higher fidelity.
-# k_Q / k_T = 0.0194 → yaw authority remains weak (high Izz, small drag
+# k_Q / k_T = 0.020 → yaw authority remains weak (high Izz, small drag
 # torque per unit thrust torque).
 propeller:
-  thrust_coefficient: 3.5e-5    # [N / (rad/s)^2]   T = k_T * omega^2
-  drag_coefficient:   6.8e-7    # [N*m / (rad/s)^2] Q = k_Q * omega^2
-  diameter: 0.356               # [m] 14" lift prop. Used by ground-effect models.
+  thrust_coefficient: 4.0e-4    # [N / (rad/s)^2]   T = k_T * omega^2
+  drag_coefficient:   8.0e-6    # [N*m / (rad/s)^2] Q = k_Q * omega^2
+  diameter: 0.61                # [m] 24" lift prop. Used by ground-effect models.
 
 # ----- Battery (electrical model — tier 1) ---------------------------------
 # Sized for the 48 V test supply: a 12S Li-Po pack (12 × 3.7 V = 44.4 V
-# nominal, 50.4 V fully charged). Capacity sized for a ~5-minute hover
-# at the measured hover current (4 motors × ~10 A = 40 A at 44 V ≈ 1760 W,
-# 25 Ah pack → 3.7 min hover ignoring losses, plenty for the 60 s eval).
+# nominal, 50.4 V fully charged). Capacity sized for ~6-minute hover at
+# the measured hover current (4 motors × ~8.5 A = 34 A at 44 V ≈ 1500 W,
+# 25 Ah pack → 4.4 min hover ignoring losses, plenty for the 60 s eval).
 battery:
   capacity_Wh:        1110.0  # 25 Ah at 12S nominal (44.4 V × 25 Ah = 1110 Wh)
   voltage_nominal:    44.4    # 12S LiPo
