@@ -318,6 +318,13 @@ class BaselineAgent:
         self._frames_since_detection = 0
         self._last_estimate: Optional[Dict] = None
 
+        # ABORT / go-around state. When the descent is going wrong (lost
+        # detection, drifted off platform), decide() pins the phase to
+        # APPROACH for `_abort_until_step - _step_count` ticks so the
+        # drone climbs and re-acquires before re-attempting LAND.
+        self._step_count = 0
+        self._abort_until_step = -1
+
     # ------------------------------------------------------------------ public API
     def act(self, obs: Dict) -> np.ndarray:
         """Top-level orchestrator. The agent_template.py version is a
@@ -482,6 +489,8 @@ class BaselineAgent:
     def decide(
         self, drone_state: Dict, boat_estimate: Dict, battery: float, time_s: float
     ) -> str:
+        self._step_count += 1
+
         pos = np.asarray(drone_state["position"], dtype=np.float64)
         target = boat_estimate.get("position")
         if target is None or boat_estimate.get("from_prior", False):
@@ -489,6 +498,22 @@ class BaselineAgent:
 
         horiz = float(np.linalg.norm(pos[:2] - np.asarray(target[:2])))
         z_above = float(pos[2] - target[2])
+
+        # ABORT triggers: only meaningful while we are already committing
+        # to land (DESCEND or LAND). If any of these fires, pin the next
+        # 1.5 s to APPROACH so the drone climbs back, stabilizes, and
+        # re-acquires before another LAND attempt.
+        if self.phase in (PHASE_DESCEND, PHASE_LAND):
+            stale = int(boat_estimate.get("stale_steps", 0)) > 25   # 0.5 s
+            drifted = horiz > 0.8                                   # off-platform
+            if stale or drifted:
+                self._abort_until_step = self._step_count + 75      # 1.5 s
+
+        # If inside an abort window, force APPROACH regardless of the
+        # cascade below. Climbing to PHASE_ALTITUDE[APPROACH] (3 m) is
+        # handled by the existing z-PID + target_z mapping.
+        if self._step_count < self._abort_until_step:
+            return PHASE_APPROACH
 
         if z_above < self.DESCEND_ALTITUDE_OK:
             return PHASE_LAND
