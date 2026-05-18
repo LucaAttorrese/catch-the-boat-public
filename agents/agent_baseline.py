@@ -79,6 +79,7 @@ PHASE_SEARCH = "SEARCH"
 PHASE_APPROACH = "APPROACH"
 PHASE_DESCEND = "DESCEND"
 PHASE_LAND = "LAND"
+PHASE_WIND_EST = "WIND_EST"
 
 
 def rpy_to_matrix(rpy) -> np.ndarray:
@@ -232,6 +233,18 @@ class BaselineAgent:
     DESCEND_HORIZ_OK = 0.4
     DESCEND_ALTITUDE_OK = 0.6
 
+    # LAND-commit gate: only commit when the boat deck tilt (from rvec)
+    # is below this threshold. If we have to wait too long for a level
+    # window, commit anyway (safety timeout).
+    LAND_TILT_MAX_RAD = float(np.deg2rad(5.0))
+    LAND_WAIT_MAX_STEPS = 100   # 2.0 s at DT=0.02
+
+    # WIND_EST phase: one-shot hover at high altitude to read drone drift
+    # under wind. The resulting world-frame acceleration is reused as a
+    # static feed-forward in APPROACH/DESCEND.
+    WIND_EST_STEPS = 50         # 1.0 s window
+    WIND_EST_MIN_ALT = 5.0      # only trigger when well above the marker
+
     # Target altitude above the marker per phase. Each phase's target must
     # be *below* the threshold for the next phase, otherwise the drone
     # settles at equilibrium and never transitions. With Kp/Kd ≈ 0.33 in
@@ -317,6 +330,10 @@ class BaselineAgent:
         self._last_marker_world: Optional[np.ndarray] = None
         self._frames_since_detection = 0
         self._last_estimate: Optional[Dict] = None
+        # Last seen boat tilt (from marker rvec). Cached so decide() can
+        # gate on the previous value during brief detection gaps.
+        self._last_boat_roll: Optional[float] = None
+        self._last_boat_pitch: Optional[float] = None
 
         # ABORT / go-around state. When the descent is going wrong (lost
         # detection, drifted off platform), decide() pins the phase to
@@ -324,6 +341,18 @@ class BaselineAgent:
         # drone climbs and re-acquires before re-attempting LAND.
         self._step_count = 0
         self._abort_until_step = -1
+        # LAND-wait state: step at which we first became "ready to LAND
+        # but waiting for a level deck". None means not currently waiting.
+        self._land_wait_since_step: Optional[int] = None
+
+        # WIND_EST state. One-shot: hover at high altitude for
+        # WIND_EST_STEPS ticks, snapshot velocity at start and end, derive
+        # wind acceleration in world frame, reuse as static FF afterwards.
+        self._wind_est_done = False
+        self._wind_est_started_step: Optional[int] = None
+        self._wind_est_v0: Optional[np.ndarray] = None
+        self._wind_est_z0: Optional[float] = None
+        self._wind_accel_w = np.zeros(2)
 
     # ------------------------------------------------------------------ public API
     def act(self, obs: Dict) -> np.ndarray:
@@ -436,6 +465,7 @@ class BaselineAgent:
 
         if perception.get("detected", False):
             tvec = perception["tvec"]
+            rvec = perception["rvec"]
             drone_pos = np.asarray(drone_state["position"], dtype=np.float64)
             R_world_body = rpy_to_matrix(drone_state["attitude"])
             body_x = R_world_body[:, 0]
@@ -455,6 +485,31 @@ class BaselineAgent:
             self.kf.update(marker_world)
             self._last_marker_world = marker_world
             self._frames_since_detection = 0
+
+            # Boat tilt from marker rotation. rvec rotates marker-local
+            # axes into the camera frame; reuse R_cam_to_world (already
+            # built for tvec) to compose the marker frame in world.
+            R_cam_marker, _ = cv2.Rodrigues(rvec)
+            R_world_marker = R_cam_to_world @ R_cam_marker
+            # Marker normal in world = R_world_marker[:, 2]. On a level
+            # deck this is +z_world. Angle off vertical is the scalar
+            # decide() actually needs for "wait for level" gating, and
+            # is invariant to IPPE_SQUARE yaw flips.
+            up = R_world_marker[:, 2]
+            cos_tilt = float(np.clip(up[2], -1.0, 1.0))
+            boat_tilt = float(np.arccos(cos_tilt))
+            # Optional decomposed roll/pitch (PyBullet R = Rz Ry Rx),
+            # exposed for axis-specific gating if useful.
+            boat_pitch = float(np.arctan2(
+                -R_world_marker[2, 0],
+                np.sqrt(R_world_marker[2, 1] ** 2 + R_world_marker[2, 2] ** 2),
+            ))
+            boat_roll = float(np.arctan2(
+                R_world_marker[2, 1], R_world_marker[2, 2]
+            ))
+            self._last_boat_roll = boat_roll
+            self._last_boat_pitch = boat_pitch
+
             return {
                 "position": self.kf.position,
                 "velocity": self.kf.velocity,
@@ -462,6 +517,9 @@ class BaselineAgent:
                 "stale_steps": 0,
                 "from_prior": False,
                 "measurement_world": marker_world,
+                "boat_tilt": boat_tilt,
+                "boat_roll": boat_roll,
+                "boat_pitch": boat_pitch,
             }
 
         # No fresh detection — KF coasts on its prediction.
@@ -473,6 +531,13 @@ class BaselineAgent:
                 "fresh": False,
                 "stale_steps": self._frames_since_detection,
                 "from_prior": False,
+                # boat_tilt is a SNAPSHOT measurement: a stale value tells
+                # us nothing about whether the deck is level *now*, so we
+                # omit it (None). Roll/pitch are still useful as a hint
+                # over very short gaps, so we carry them forward.
+                "boat_tilt": None,
+                "boat_roll": self._last_boat_roll,
+                "boat_pitch": self._last_boat_pitch,
             }
         # Cold start: filter never initialized -> use the search prior.
         return {
@@ -494,6 +559,7 @@ class BaselineAgent:
         pos = np.asarray(drone_state["position"], dtype=np.float64)
         target = boat_estimate.get("position")
         if target is None or boat_estimate.get("from_prior", False):
+            self._land_wait_since_step = None
             return PHASE_SEARCH
 
         horiz = float(np.linalg.norm(pos[:2] - np.asarray(target[:2])))
@@ -513,10 +579,58 @@ class BaselineAgent:
         # cascade below. Climbing to PHASE_ALTITUDE[APPROACH] (3 m) is
         # handled by the existing z-PID + target_z mapping.
         if self._step_count < self._abort_until_step:
+            self._land_wait_since_step = None
             return PHASE_APPROACH
 
+        # WIND_EST: keep the phase active for its full window. When the
+        # window closes, mark it done and fall through to normal decision
+        # logic; control() picks up _wind_est_v0 to compute the estimate.
+        if self._wind_est_started_step is not None:
+            elapsed = self._step_count - self._wind_est_started_step
+            if elapsed < self.WIND_EST_STEPS:
+                return PHASE_WIND_EST
+            self._wind_est_done = True
+            self._wind_est_started_step = None
+
+        # Trigger WIND_EST once, when safe: KF locked on, well above the
+        # marker, drone roughly stationary (no inherited velocity to coast
+        # through the window), and currently approaching/searching.
+        drone_vel = np.asarray(drone_state["velocity"], dtype=np.float64)
+        drone_stable = bool(np.linalg.norm(drone_vel) < 1.5)
+        if (not self._wind_est_done
+                and self.kf.initialized
+                and z_above > self.WIND_EST_MIN_ALT
+                and drone_stable
+                and self.phase in (PHASE_SEARCH, PHASE_APPROACH)):
+            self._wind_est_started_step = self._step_count
+            return PHASE_WIND_EST
+
+        # TILT GATE: in the LAND-ready altitude band, only commit when
+        # the deck is roughly level. Otherwise hold DESCEND (hover near
+        # the marker) and wait for the next zero-crossing of the wave
+        # oscillation. Safety timeout: if we've been waiting too long
+        # (boat in heavy seas, noisy rvec, etc.), commit anyway so we
+        # don't burn battery hovering forever.
         if z_above < self.DESCEND_ALTITUDE_OK:
-            return PHASE_LAND
+            boat_tilt = boat_estimate.get("boat_tilt")
+            # boat_tilt is None when info is unavailable (cold-start or
+            # the post-detection branch). In that case don't block LAND.
+            deck_level = (boat_tilt is None) or (boat_tilt < self.LAND_TILT_MAX_RAD)
+            if deck_level:
+                self._land_wait_since_step = None
+                return PHASE_LAND
+            if self._land_wait_since_step is None:
+                self._land_wait_since_step = self._step_count
+            waited = self._step_count - self._land_wait_since_step
+            if waited > self.LAND_WAIT_MAX_STEPS:
+                self._land_wait_since_step = None
+                return PHASE_LAND                  # safety timeout
+            return PHASE_DESCEND                   # hover, wait for level
+
+        # Out of the LAND-ready band — clear the wait timer so the next
+        # entry to the band starts fresh.
+        self._land_wait_since_step = None
+
         if horiz < self.DESCEND_HORIZ_OK and z_above < self.APPROACH_ALTITUDE_OK:
             return PHASE_DESCEND
         if horiz < self.APPROACH_HORIZ_OK:
@@ -539,6 +653,38 @@ class BaselineAgent:
             self.pid_yaw.reset()
         self._prev_phase = phase
 
+        # Velocity is needed both for the WIND_EST snapshot and for the
+        # main flow; hoist it before any phase-specific branching.
+        vel_world = np.asarray(drone_state["velocity"], dtype=np.float64)
+
+        # WIND_EST: level attitude + altitude-hold, short-circuit the rest
+        # of control. Wind only acts horizontally, so a small z PD doesn't
+        # contaminate the xy drift estimate. Without altitude hold, any
+        # vertical velocity inherited from the prior phase persists
+        # through hover (thrust_norm=0 only cancels gravity, not inertia)
+        # and the drone crashes after WIND_EST ends.
+        if phase == PHASE_WIND_EST:
+            if self._wind_est_v0 is None:
+                self._wind_est_v0 = vel_world.copy()
+                self._wind_est_z0 = float(drone_state["position"][2])
+            z_err = float(self._wind_est_z0 - drone_state["position"][2])
+            v_z = float(vel_world[2])
+            thrust_z = float(np.clip(0.4 * z_err - 0.8 * v_z, -1.0, 1.0))
+            return self.attitude_ctrl(
+                drone_state,
+                roll_des=0.0, pitch_des=0.0,
+                yaw_rate_des=0.0, thrust_norm=thrust_z,
+            )
+
+        # First tick after WIND_EST: turn (v_now - v0) into the wind
+        # acceleration estimate. One-shot: clear v0 so this never fires
+        # again (unless WIND_EST is rearmed in a future iteration).
+        if self._wind_est_v0 is not None:
+            elapsed = self.WIND_EST_STEPS * self.DT
+            wind = (vel_world[:2] - self._wind_est_v0[:2]) / elapsed
+            self._wind_accel_w = np.clip(wind, -5.0, 5.0)
+            self._wind_est_v0 = None
+
         pos = np.asarray(drone_state["position"], dtype=np.float64)
         target = boat_estimate.get("position")
         if target is None:
@@ -552,7 +698,6 @@ class BaselineAgent:
         # regardless of yaw. The baseline never actively yaws, but this
         # keeps things correct if anything perturbs heading.
         R = rpy_to_matrix(drone_state["attitude"])
-        vel_world = np.asarray(drone_state["velocity"], dtype=np.float64)
         vel_body = R.T @ vel_world
         err_world = np.array(
             [target[0] - pos[0], target[1] - pos[1], target_z - pos[2]],
@@ -587,6 +732,23 @@ class BaselineAgent:
         pitch_cmd = self.pid_x(err_body[0], self.DT, measurement_velocity=rel_vel_body[0])
         roll_cmd = -self.pid_y(err_body[1], self.DT, measurement_velocity=rel_vel_body[1])
         thrust_cmd = self.pid_z(err_world[2], self.DT, measurement_velocity=rel_vel_world_z)
+
+        # WIND FEED-FORWARD: cancel the measured wind acceleration by
+        # tilting into it. World -> body rotation uses yaw only (the
+        # required tilt is a body-frame quantity). K_FF inverts the
+        # attitude controller's pitch_norm -> acceleration gain;
+        # 0.20 assumes max_tilt ~ 0.5 rad (verify with controllers.py).
+        if self._wind_est_done and phase in (PHASE_APPROACH, PHASE_DESCEND):
+            yaw = float(drone_state["attitude"][2])
+            cy, sy = float(np.cos(yaw)), float(np.sin(yaw))
+            wx_w, wy_w = float(self._wind_accel_w[0]), float(self._wind_accel_w[1])
+            wind_body_x =  cy * wx_w + sy * wy_w
+            wind_body_y = -sy * wx_w + cy * wy_w
+            K_FF = 0.20
+            pitch_ff = float(np.clip( K_FF * wind_body_x, -0.3, 0.3))
+            roll_ff  = float(np.clip(-K_FF * wind_body_y, -0.3, 0.3))
+            pitch_cmd = float(np.clip(pitch_cmd + pitch_ff, -1.0, 1.0))
+            roll_cmd  = float(np.clip(roll_cmd  + roll_ff,  -1.0, 1.0))
 
         # SOFT DESCENT (LAND phase): instead of bang-bang thrust_cmd=-1.0,
         # track a velocity reference that decreases with height. Goal:
