@@ -168,12 +168,29 @@ class BaselineAgent:
         self.dist_coeffs = np.zeros(5, dtype=np.float64)
 
         self._dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100)
+        params = cv2.aruco.DetectorParameters()
+        # CONTOUR refinement fits the marker edges (complementary to the
+        # corner-level cv2.cornerSubPix run after detection in perceive()).
+        params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_CONTOUR
+        # Default adaptive-threshold window (3-23-10) targets small markers;
+        # widen it for the 0.8 m plate seen blurry/foggy from altitude.
+        params.adaptiveThreshWinSizeMin = 5
+        params.adaptiveThreshWinSizeMax = 35
+        params.adaptiveThreshWinSizeStep = 6
+        # Lower minMarkerPerimeterRate so the marker stays detectable
+        # higher up (cold-start SEARCH altitude is 5.5 m).
+        params.minMarkerPerimeterRate = 0.02
+        # More tolerant polygonal approximation -> survives motion blur.
+        params.polygonalApproxAccuracyRate = 0.05
+        self._detector_params = params
         try:
-            self._detector = cv2.aruco.ArucoDetector(
-                self._dictionary, cv2.aruco.DetectorParameters()
-            )
+            self._detector = cv2.aruco.ArucoDetector(self._dictionary, params)
         except AttributeError:
             self._detector = None  # OpenCV < 4.7 fallback path used in perceive()
+
+        # CLAHE: restores local contrast washed out by Beer-Lambert fog at
+        # altitude (see boat_landing/camera.py). Reused across frames.
+        self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
         # Marker corner ordering used by IPPE_SQUARE: TL, TR, BR, BL in the
         # marker's own local frame, marker plane = z=0.
@@ -246,10 +263,13 @@ class BaselineAgent:
     # ------------------------------------------------------------------ perception
     def perceive(self, camera_image: np.ndarray) -> Dict:
         gray = cv2.cvtColor(camera_image, cv2.COLOR_RGB2GRAY)
+        gray = self._clahe.apply(gray)
         if self._detector is not None:
             corners, ids, _ = self._detector.detectMarkers(gray)
         else:
-            corners, ids, _ = cv2.aruco.detectMarkers(gray, self._dictionary)
+            corners, ids, _ = cv2.aruco.detectMarkers(
+                gray, self._dictionary, parameters=self._detector_params
+            )
 
         if ids is None or len(ids) == 0:
             return {"detected": False}
