@@ -596,7 +596,7 @@ class BaselineAgent:
         # marker, drone roughly stationary (no inherited velocity to coast
         # through the window), and currently approaching/searching.
         drone_vel = np.asarray(drone_state["velocity"], dtype=np.float64)
-        drone_stable = bool(np.linalg.norm(drone_vel) < 1.5)
+        drone_stable = bool(np.linalg.norm(drone_vel) < 1.0)
         if (not self._wind_est_done
                 and self.kf.initialized
                 and z_above > self.WIND_EST_MIN_ALT
@@ -759,11 +759,15 @@ class BaselineAgent:
             # Schedule: -1.0 m/s far up, easing to -0.3 m/s near contact.
             v_des = -float(np.clip(0.3 + 0.5 * h, 0.3, 1.0))
             # Inner velocity loop: bias keeps the drone descending when
-            # v_z == v_des; the gain (1.5) corrects deviations. Clipped
-            # in [-1, 0] so we never apply *upward* thrust during LAND.
+            # v_z == v_des; the gain (1.5) corrects deviations. Upper
+            # clip is +1 (not 0) so that when v_z << v_des — i.e. drone
+            # has built up a fast descent inherited from the prior phase
+            # — the loop can apply upward thrust to brake. The formula
+            # naturally settles around hover (or just below) once v_z
+            # tracks v_des, so the drone does not bounce.
             v_z = float(vel_world[2])
             thrust_cmd = -0.3 + 1.5 * (v_des - v_z)
-            thrust_cmd = float(np.clip(thrust_cmd, -1.0, 0.0))
+            thrust_cmd = float(np.clip(thrust_cmd, -1.0, 1.0))
 
         # ACTIVE YAW (wing-perpendicular landing condition).
         # Boat heading is derived from the KF velocity estimate (atan2 of
@@ -783,6 +787,25 @@ class BaselineAgent:
                 elif yaw_err < -np.pi / 2:
                     yaw_err += np.pi
                 yaw_rate_cmd = self.pid_yaw(yaw_err, self.DT)
+
+        # TILT COMPENSATION on thrust. The attitude controller produces
+        # a body-z force F_body = hover * (1 + thrust_cmd * 0.5). The
+        # *vertical* force in world is F_body * R[2,2], so a tilted
+        # drone gets less vertical force than the z-PID asked for. While
+        # chasing the boat horizontally the drone tilts a lot, vertical
+        # force drops, and the drone falls. Solve for thrust_new such
+        # that the vertical force matches the original PID command:
+        #   (1 + thrust_new*0.5) * R[2,2] = (1 + thrust_orig*0.5)
+        Rzz = max(float(R[2, 2]), 0.3)   # floor for extreme tilts
+        thrust_cmd = ((1.0 + thrust_cmd * 0.5) / Rzz - 1.0) / 0.5
+        thrust_cmd = float(np.clip(thrust_cmd, -1.0, 1.0))
+
+        # HARD SAFETY BRAKE: even with tilt comp, motor headroom is
+        # limited at high bank angles and the brake may not fully halt
+        # the fall. Trigger earlier (at -1.5 m/s) so the brake has time
+        # to bite before ground impact.
+        if float(vel_world[2]) < -1.5:
+            thrust_cmd = 1.0
 
         # Hand the high-level (thrust, roll, pitch, yaw_rate) setpoints to
         # the stock attitude controller, which mixes them into per-motor
