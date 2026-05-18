@@ -10,17 +10,17 @@
 # bonuses.
 
 team:           "Baseline (organizers)"
-drone_sim_path: "agents/drone_sim_baseline.py"
+drone_sim_path: "agents/drone_sim_teamdedo.py"
 agent_path:     "agents/agent_baseline.py"
 
 simulator_features:
   tier_1:
     motor_lag:        true
-    battery_sag:      false
-    aero_drag:        false
+    battery_sag:      true
+    aero_drag:        true
     cross_coupling:   true
     substepping:      true
-    ground_effect:    false
+    ground_effect:    true
 
 notes: |
   Reference Tier-0 simulator. Static thrust + first-order motor model +
