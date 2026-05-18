@@ -264,6 +264,16 @@ class BaselineAgent:
             return {"detected": False}
 
         image_points = target.reshape(4, 2).astype(np.float32)
+        # Subpixel refinement: ArUco returns integer-pixel corners. solvePnP's
+        # translation error scales with corner error, so spending ~0.05 ms per
+        # frame here typically tightens tvec by 5-10x at altitude.
+        cv2.cornerSubPix(
+            gray,
+            image_points,
+            winSize=(5, 5),
+            zeroZone=(-1, -1),
+            criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01),
+        )
         ok, rvec, tvec = cv2.solvePnP(
             self._object_points,
             image_points,
