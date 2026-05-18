@@ -63,6 +63,14 @@ scenarios/private/*.yaml
 # intermediate files, only the final .so/.pyd in the participant wheel.
 boat_landing/reference_sim/_core.c
 boat_landing/reference_sim/build/
+# Reference sim binary staged at container start by the :full image's
+# entrypoint (release/docker-entrypoint-full.sh). On Linux/Mac hosts
+# this file appears in the workspace mount as a regular file owned by
+# the host user; on Windows it lives on the host FS via WSL/virtiofs.
+# Either way it must not be committed — the binary ships through the
+# Docker image, not through the repo.
+boat_landing/reference_sim/_core.cpython-*.so
+boat_landing/reference_sim/_core*.pyd
 
 # Claude Code local settings — personal/per-machine, never share.
 .claude/
