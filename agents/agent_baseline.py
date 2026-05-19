@@ -82,6 +82,8 @@ PHASE_LAND = "LAND"
 PHASE_WIND_EST = "WIND_EST"
 
 
+
+
 def rpy_to_matrix(rpy) -> np.ndarray:
     """World-from-body rotation matrix using PyBullet's RPY convention:
     R = Rz(yaw) @ Ry(pitch) @ Rx(roll). Used to transform the marker's
@@ -242,7 +244,7 @@ class BaselineAgent:
     # WIND_EST phase: one-shot hover at high altitude to read drone drift
     # under wind. The resulting world-frame acceleration is reused as a
     # static feed-forward in APPROACH/DESCEND.
-    WIND_EST_STEPS = 50         # 1.0 s window
+    WIND_EST_STEPS = 38         # 50 = 1.0 s window
     WIND_EST_MIN_ALT = 2.0      # only trigger when well above the marker
 
     # Target altitude above the marker per phase. Each phase's target must
@@ -317,8 +319,8 @@ class BaselineAgent:
         # the controller stabilizes.
         self.pid_x = PID(kp=0.15, ki=0.02, kd=0.40)
         self.pid_y = PID(kp=0.15, ki=0.02, kd=0.40)
-        self.pid_z = PID(kp=0.10, ki=0.02, kd=0.30)
-        self.pid_yaw = PID(kp=1.0, ki=0.0, kd=0.0)
+        self.pid_z = PID(kp=0.15, ki=0.02, kd=0.30)
+        self.pid_yaw = PID(kp=0.10, ki=0.0, kd=0.0)
 
         # Constant-velocity Kalman on (x, y, z, vx, vy, vz). Smooths solvePnP
         # jitter and gives us a non-zero velocity estimate the controller can
@@ -582,6 +584,10 @@ class BaselineAgent:
     ) -> str:
         self._step_count += 1
 
+        self.LOW_ALT_THRESHOLD = 1.0   # m sopra marker: sotto questa quota,
+                          # la perdita marker è attesa, non patologica
+
+
         pos = np.asarray(drone_state["position"], dtype=np.float64)
         target = boat_estimate.get("position")
         if target is None or boat_estimate.get("from_prior", False):
@@ -595,11 +601,13 @@ class BaselineAgent:
         # to land (DESCEND or LAND). If any of these fires, pin the next
         # 1.5 s to APPROACH so the drone climbs back, stabilizes, and
         # re-acquires before another LAND attempt.
-        if self.phase in (PHASE_DESCEND, PHASE_LAND):
-            stale = int(boat_estimate.get("stale_steps", 0)) > 25   # 0.5 s
-            drifted = horiz > 0.8                                   # off-platform
+        if self.phase in (PHASE_DESCEND):
+            low_alt = z_above < self.LOW_ALT_THRESHOLD
+            stale_threshold = 15 if low_alt else 25   # 0.3 s at low altitude, 0.5 s at high altitude
+            stale = int(boat_estimate.get("stale_steps", 0)) > stale_threshold   # 0.5 s
+            drifted = horiz > 0.6                                   # off-platform
             if stale or drifted:
-                self._abort_until_step = self._step_count + 75      # 1.5 s
+                self._abort_until_step = self._step_count + 15      # 1.5 s
 
         # If inside an abort window, force APPROACH regardless of the
         # cascade below. Climbing to PHASE_ALTITUDE[APPROACH] (3 m) is
