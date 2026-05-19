@@ -335,6 +335,11 @@ class BaselineAgent:
         self._last_boat_roll: Optional[float] = None
         self._last_boat_pitch: Optional[float] = None
 
+        # Cache of the most recent 4-DoF FC setpoint computed by control().
+        # act_setpoint() returns this — keeping act() as the single
+        # pipeline path and act_setpoint() as a thin delegate.
+        self._last_setpoint: tuple = (0.0, 0.0, 0.0, 0.0)
+
         # ABORT / go-around state. When the descent is going wrong (lost
         # detection, drifted off platform), decide() pins the phase to
         # APPROACH for `_abort_until_step - _step_count` ticks so the
@@ -380,6 +385,27 @@ class BaselineAgent:
             # Safe fallback: hover throttle on every motor.
             action = self._hover_action.copy()
         return action
+
+    def act_setpoint(self, obs: Dict) -> tuple:
+        """FC-compatible 4-DoF setpoint (thrust_norm, roll, pitch, yaw_rate).
+
+        Thin delegate: runs the full act() pipeline (the only actuator
+        path in this agent), then returns the high-level setpoint that
+        control() cached as a side effect. Motor throttles computed by
+        act() are discarded by the evaluator in this mode. Keeping a
+        single pipeline path guarantees setpoint and motor outputs
+        cannot diverge.
+        """
+        _ = self.act(obs)
+        sp = self._last_setpoint
+        if not all(np.isfinite(v) for v in sp):
+            import sys
+            print(
+                f"[BaselineAgent] non-finite setpoint {sp}",
+                file=sys.stderr,
+            )
+            sp = (0.0, 0.0, 0.0, 0.0)
+        return sp
 
     def get_last_estimate(self) -> Optional[Dict]:
         """Expose the most recent boat-position estimate so the scorer can
@@ -670,6 +696,7 @@ class BaselineAgent:
             z_err = float(self._wind_est_z0 - drone_state["position"][2])
             v_z = float(vel_world[2])
             thrust_z = float(np.clip(0.4 * z_err - 0.8 * v_z, -1.0, 1.0))
+            self._last_setpoint = (thrust_z, 0.0, 0.0, 0.0)
             return self.attitude_ctrl(
                 drone_state,
                 roll_des=0.0, pitch_des=0.0,
@@ -806,6 +833,14 @@ class BaselineAgent:
         # to bite before ground impact.
         if float(vel_world[2]) < -1.5:
             thrust_cmd = 1.0
+
+        # Cache the 4-DoF FC setpoint just before the mixer. act_setpoint()
+        # reads from here, so the setpoint and motor outputs come from the
+        # same compute path and can never diverge.
+        self._last_setpoint = (
+            float(thrust_cmd), float(roll_cmd),
+            float(pitch_cmd), float(yaw_rate_cmd),
+        )
 
         # Hand the high-level (thrust, roll, pitch, yaw_rate) setpoints to
         # the stock attitude controller, which mixes them into per-motor
