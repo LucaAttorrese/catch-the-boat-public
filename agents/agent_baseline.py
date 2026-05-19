@@ -243,7 +243,7 @@ class BaselineAgent:
     # under wind. The resulting world-frame acceleration is reused as a
     # static feed-forward in APPROACH/DESCEND.
     WIND_EST_STEPS = 50         # 1.0 s window
-    WIND_EST_MIN_ALT = 5.0      # only trigger when well above the marker
+    WIND_EST_MIN_ALT = 2.0      # only trigger when well above the marker
 
     # Target altitude above the marker per phase. Each phase's target must
     # be *below* the threshold for the next phase, otherwise the drone
@@ -622,7 +622,7 @@ class BaselineAgent:
         # marker, drone roughly stationary (no inherited velocity to coast
         # through the window), and currently approaching/searching.
         drone_vel = np.asarray(drone_state["velocity"], dtype=np.float64)
-        drone_stable = bool(np.linalg.norm(drone_vel) < 1.0)
+        drone_stable = bool(np.linalg.norm(drone_vel) < 4.0)
         if (not self._wind_est_done
                 and self.kf.initialized
                 and z_above > self.WIND_EST_MIN_ALT
